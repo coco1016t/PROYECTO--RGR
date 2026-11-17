@@ -1,0 +1,11 @@
+# Python environments and generated files
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+
+# Local macOS files
+.DS_Store
+
+# Uploaded runtime content
+backend_API/uploads/
