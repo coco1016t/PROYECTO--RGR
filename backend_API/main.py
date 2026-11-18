@@ -1,6 +1,15 @@
 from pathlib import Path
+import hashlib
 import hmac
+from email.message import EmailMessage
+import os
+import secrets
+import smtplib
+import ssl
+import time
+from urllib.parse import urlsplit, urlunsplit
 from uuid import uuid4
+from pydantic import BaseModel
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
@@ -10,7 +19,7 @@ from sqlalchemy import inspect, select
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from pwdlib import PasswordHash
 from database import Base, engine, obtener_sesion
-from models import Usuario, Blog, Comentario
+from models import Usuario, Blog, Comentario, TokenRecuperacion
 from schemas import (
     UsuarioCrear,
     UsuarioActualizar,
@@ -20,13 +29,116 @@ from schemas import (
     ComentarioRespuesta,
     LoginRequest,
     TokenRespuesta,
+    SolicitarRecuperacion,
+    RestablecerPassword,
 )
-from seguridad import crear_token, usuario_actual, usuario_opcional, solo_admin
+from seguridad import (
+    crear_token,
+    usuario_actual,
+    usuario_opcional,
+    solo_admin,
+)
 
 password_hash = PasswordHash.recommended()
 UPLOAD_DIR = Path(__file__).resolve().parent / "uploads"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 MAX_IMAGE_SIZE = 10 * 1024 * 1024
+TOKEN_RECUPERACION_TTL = 10 * 60
+TOKEN_RECUPERACION_ESPERA = 60
+
+
+def _configuracion_smtp() -> tuple[str, int, str, str, str, bool]:
+    host = os.getenv("SMTP_HOST", "").strip()
+    remitente = os.getenv("SMTP_FROM_EMAIL", "").strip()
+    if not host or not remitente:
+        raise HTTPException(
+            status_code=503,
+            detail="El envío de correo no está configurado en el servidor",
+        )
+
+    try:
+        puerto = int(os.getenv("SMTP_PORT", "587"))
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="La configuración SMTP del servidor no es válida",
+        ) from exc
+
+    usar_starttls = os.getenv("SMTP_STARTTLS", "true").strip().lower() == "true"
+    return (
+        host,
+        puerto,
+        os.getenv("SMTP_USERNAME", "").strip(),
+        os.getenv("SMTP_PASSWORD", ""),
+        remitente,
+        usar_starttls,
+    )
+
+
+def _url_restablecimiento(token: str) -> str:
+    url_base = os.getenv("PASSWORD_RESET_URL", "").strip()
+    partes = urlsplit(url_base)
+    ruta = partes.fragment.partition("?")[0] if partes.fragment else ""
+    if (
+        partes.scheme not in {"http", "https"}
+        or not partes.netloc
+        or ruta not in {"", "/reset-password"}
+    ):
+        raise HTTPException(
+            status_code=503,
+            detail="La URL de recuperación no está configurada correctamente",
+        )
+
+    fragmento = f"/reset-password?token={token}"
+    return urlunsplit(
+        (partes.scheme, partes.netloc, partes.path, partes.query, fragmento)
+    )
+
+
+def _enviar_enlace_recuperacion(correo: str, enlace: str) -> None:
+    host, puerto, usuario, password, remitente, usar_starttls = _configuracion_smtp()
+    mensaje = EmailMessage()
+    mensaje["Subject"] = "Enlace para recuperar tu contraseña"
+    mensaje["From"] = remitente
+    mensaje["To"] = correo
+    mensaje.set_content(
+        "Abre este enlace para crear una nueva contraseña:\n\n"
+        f"{enlace}\n\n"
+        "El enlace vence en 10 minutos y solo se puede usar una vez. "
+        "Si no solicitaste este cambio, puedes ignorar este mensaje."
+    )
+
+    contexto = ssl.create_default_context()
+    try:
+        with smtplib.SMTP(host, puerto, timeout=10) as servidor:
+            if usar_starttls:
+                servidor.starttls(context=contexto)
+            if usuario:
+                servidor.login(usuario, password)
+            servidor.send_message(mensaje)
+    except (OSError, smtplib.SMTPException) as exc:
+        raise HTTPException(
+            status_code=502,
+            detail="No se pudo enviar el correo de recuperación",
+        ) from exc
+
+
+def _clave_token_recuperacion() -> bytes:
+    clave = os.getenv("PASSWORD_RESET_SECRET", "").strip()
+    if not clave:
+        raise HTTPException(
+            status_code=503,
+            detail="La recuperación de contraseña no está configurada en el servidor",
+        )
+    return clave.encode("utf-8")
+
+
+def _hash_token_recuperacion(token: str) -> str:
+    return hmac.new(
+        _clave_token_recuperacion(),
+        token.encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
 
 
 @asynccontextmanager
@@ -123,6 +235,137 @@ def iniciar_sesion(
         "usuario": usuario,
     }
 
+
+@app.post("/password-reset/request")
+def solicitar_recuperacion(
+    datos: SolicitarRecuperacion,
+    db: Session = Depends(obtener_sesion),
+):
+    _configuracion_smtp()
+    _clave_token_recuperacion()
+    _url_restablecimiento("validacion-configuracion")
+    correo = datos.mail.strip().lower()
+    usuario = db.scalar(select(Usuario).where(Usuario.mail == correo))
+    if usuario is None:
+        return {
+            "mensaje": (
+                "Si el correo está registrado, recibirás un enlace de recuperación"
+            )
+        }
+
+    ahora = int(time.time())
+    token_anterior = db.scalar(
+        select(TokenRecuperacion)
+        .where(TokenRecuperacion.usr_id == usuario.id_usr)
+        .order_by(TokenRecuperacion.creado_en.desc())
+        .with_for_update()
+    )
+    if (
+        token_anterior is not None
+        and ahora - token_anterior.creado_en < TOKEN_RECUPERACION_ESPERA
+    ):
+        return {
+            "mensaje": (
+                "Si el correo está registrado, recibirás un enlace de recuperación"
+            )
+        }
+
+    token = secrets.token_urlsafe(32)
+    if token_anterior is not None:
+        db.delete(token_anterior)
+    nuevo_token = TokenRecuperacion(
+        usr_id=usuario.id_usr,
+        token_hash=_hash_token_recuperacion(token),
+        expira_en=ahora + TOKEN_RECUPERACION_TTL,
+        creado_en=ahora,
+    )
+    db.add(nuevo_token)
+    db.commit()
+
+    try:
+        _enviar_enlace_recuperacion(correo, _url_restablecimiento(token))
+    except HTTPException:
+        db.delete(nuevo_token)
+        db.commit()
+        raise
+
+    return {
+        "mensaje": (
+            "Si el correo está registrado, recibirás un enlace de recuperación"
+        )
+    }
+
+
+@app.post("/usuarios/restablecer-password")
+def confirmar_recuperacion(
+    datos: RestablecerPassword,
+    db: Session = Depends(obtener_sesion),
+):
+    correo = datos.correo.strip().lower()
+    usuario = db.scalar(select(Usuario).where(Usuario.mail == correo))
+    token = (
+        db.scalar(
+            select(TokenRecuperacion)
+            .where(TokenRecuperacion.usr_id == usuario.id_usr)
+            .order_by(TokenRecuperacion.creado_en.desc())
+            .with_for_update()
+        )
+        if usuario is not None
+        else None
+    )
+    ahora = int(time.time())
+    if (
+        token is None
+        or token.expira_en <= ahora
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="El enlace es inválido o ha vencido",
+        )
+
+    if not hmac.compare_digest(
+        token.token_hash,
+        _hash_token_recuperacion(datos.token),
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="El enlace es inválido o ha vencido",
+        )
+
+    usuario.pass_hash = password_hash.hash(datos.password)
+    db.delete(token)
+    db.commit()
+    return {"mensaje": "La contraseña se actualizó correctamente"}
+
+class ActualizarPasswordRequest(BaseModel):
+    mail: str
+    password: str
+
+@app.post("/password-reset/update")
+def actualizar_password(
+    datos: ActualizarPasswordRequest,
+    db: Session = Depends(obtener_sesion),
+):
+    correo = datos.mail.strip().lower()
+
+    if len(datos.password) < 8:
+        raise HTTPException(
+            status_code=400,
+            detail="La contraseña debe tener al menos 8 caracteres",
+        )
+
+    usuario = db.scalar(select(Usuario).where(Usuario.mail == correo))
+    if usuario is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Correo no registrado",
+        )
+
+    # UPDATE usuario SET pass = <hash argon2> WHERE mail = <correo>
+    usuario.pass_hash = password_hash.hash(datos.password)
+    db.commit()
+
+    return {"mensaje": "La contraseña se actualizó correctamente"}
 
 # ---------------------------------------------------------------
 # USUARIOS
