@@ -1,6 +1,7 @@
 from sqlalchemy import (
     Column, Integer, String, Text,
-    DateTime, ForeignKey, func
+    DateTime, ForeignKey, func,
+    UniqueConstraint, CheckConstraint
 )
 from sqlalchemy.orm import relationship
 from database import Base
@@ -56,3 +57,31 @@ class Comentario(Base):
     @property
     def autor(self):
         return self.usuario.nom_usr if self.usuario else None
+
+
+class Valoracion(Base):
+    __tablename__ = "valoraciones"
+    __table_args__ = (
+        # Un usuario solo puede tener una valoración por post.
+        UniqueConstraint("usr_id", "blog_id", name="uq_valoracion_usr_blog"),
+        CheckConstraint("puntos BETWEEN 1 AND 5", name="ck_valoracion_puntos"),
+    )
+
+    id_val = Column(Integer, primary_key=True, index=True)
+    puntos = Column(Integer, nullable=False)
+    fecha = Column(
+        DateTime,
+        nullable=False,
+        server_default=func.current_timestamp(),
+        onupdate=func.current_timestamp(),
+    )
+    usr_id = Column(
+        Integer,
+        ForeignKey("usuario.id_usr", ondelete="CASCADE"),
+        nullable=False,
+    )
+    blog_id = Column(
+        Integer,
+        ForeignKey("blog.id_blog", ondelete="CASCADE"),
+        nullable=False,
+    )
