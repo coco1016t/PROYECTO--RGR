@@ -4,6 +4,7 @@ import '../models/post_model.dart';
 import '../services/comentario_service.dart';
 import '../services/post_service.dart';
 import '../services/sesion_service.dart';
+import '../widgets/valoracion_estrellas.dart';
 
 class PostDetailPage extends StatefulWidget {
   final PostModel post;
@@ -251,6 +252,10 @@ class _PostDetailPageState extends State<PostDetailPage> {
                     ),
                   ),
                   const SizedBox(height: 24),
+                  const Divider(),
+                  const SizedBox(height: 12),
+                  ValoracionEstrellas(blogId: post.id),
+                  const SizedBox(height: 16),
                   const Divider(),
                   const SizedBox(height: 12),
                   _seccionComentarios(),
