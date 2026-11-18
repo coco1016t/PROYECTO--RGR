@@ -1,4 +1,3 @@
-
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
@@ -13,6 +12,30 @@ class AuthService {
   }) {
     if (usuario.trim().isEmpty || password.isEmpty) {
       return 'Ingresa tu correo y contraseña';
+    }
+    return null;
+  }
+
+  String? validarSolicitudRecuperacion({required String correo}) {
+    if (correo.trim().isEmpty) {
+      return 'Ingresa tu correo electrónico';
+    }
+    if (!correo.contains('@')) {
+      return 'Ingresa un correo válido';
+    }
+    return null;
+  }
+
+  String? validarRestablecimiento({
+    required String correo,
+    required String password,
+  }) {
+    final errorCorreo = validarSolicitudRecuperacion(correo: correo);
+    if (errorCorreo != null) {
+      return errorCorreo;
+    }
+    if (password.length < 8) {
+      return 'La contraseña debe tener al menos 8 caracteres';
     }
     return null;
   }
@@ -91,5 +114,38 @@ class AuthService {
     throw Exception(
       'Error al iniciar sesión: HTTP ${respuesta.statusCode}',
     );
+  }
+
+  /// Actualiza la contraseña del usuario (UPDATE en la tabla de usuarios).
+  Future<void> restablecerPassword({
+    required String correo,
+    required String password,
+  }) async {
+    final respuesta = await http
+        .post(
+          Uri.parse('$baseUrl/password-reset/update'),
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: jsonEncode({
+            'mail': correo.trim().toLowerCase(),
+            'password': password,
+          }),
+        )
+        .timeout(const Duration(seconds: 10));
+
+    if (respuesta.statusCode == 200) {
+      return;
+    }
+    throw Exception(_mensajeError(respuesta));
+  }
+
+  String _mensajeError(http.Response respuesta) {
+    final dynamic resultado = jsonDecode(respuesta.body);
+    if (resultado is Map && resultado['detail'] != null) {
+      return resultado['detail'].toString();
+    }
+    return 'Error de recuperación: HTTP ${respuesta.statusCode}';
   }
 }
