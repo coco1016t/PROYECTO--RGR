@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'screens/add_blog_page.dart';
 import 'screens/blog_page.dart';
+import 'screens/forgot_password_page.dart';
 import 'screens/login_user_page.dart';
 import 'screens/mapa_page.dart';
 import 'screens/profile_page.dart';
 import 'screens/register_user_page.dart';
 import 'screens/users_page.dart';
 import 'services/sesion_service.dart';
-
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -24,6 +24,7 @@ class LoginApp extends StatelessWidget {
     final sesion = SesionService.instance;
     final rutas = <String, WidgetBuilder>{
       '/login': (context) => const LoginPage(),
+      '/forgot-password': (context) => const ForgotPasswordPage(),
       '/register': (context) => const RegisterPage(),
       '/users': (context) => const UsersPage(),
       '/blog': (context) => const BlogPage(),
@@ -43,15 +44,17 @@ class LoginApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'Aplicación móvil con FastAPI',
       initialRoute: rutaInicial,
-      onGenerateInitialRoutes: (nombre) => [
-        MaterialPageRoute<void>(
-          settings: RouteSettings(
-            name: nombre,
-            arguments: sesion.activa ? sesion.usuario : null,
+      onGenerateInitialRoutes: (nombre) {
+        return [
+          MaterialPageRoute<void>(
+            settings: RouteSettings(
+              name: nombre,
+              arguments: sesion.activa ? sesion.usuario : null,
+            ),
+            builder: rutas[nombre]!,
           ),
-          builder: rutas[nombre]!,
-        ),
-      ],
+        ];
+      },
       routes: rutas,
     );
   }
