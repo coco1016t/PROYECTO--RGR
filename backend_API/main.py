@@ -15,11 +15,15 @@ from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
-from sqlalchemy import inspect, select
+from sqlalchemy import func, inspect, select
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from pwdlib import PasswordHash
 from database import Base, engine, obtener_sesion
+<<<<<<< HEAD
 from models import Usuario, Blog, Comentario, TokenRecuperacion
+=======
+from models import Usuario, Blog, Comentario, Valoracion
+>>>>>>> 0efd663229994848a3caf3d9b2e3b05b5ce1ccdc
 from schemas import (
     UsuarioCrear,
     UsuarioActualizar,
@@ -29,6 +33,7 @@ from schemas import (
     ComentarioRespuesta,
     LoginRequest,
     TokenRespuesta,
+<<<<<<< HEAD
     SolicitarRecuperacion,
     RestablecerPassword,
 )
@@ -37,6 +42,10 @@ from seguridad import (
     usuario_actual,
     usuario_opcional,
     solo_admin,
+=======
+    ValoracionCrear,
+    ValoracionResumen,
+>>>>>>> 0efd663229994848a3caf3d9b2e3b05b5ce1ccdc
 )
 
 password_hash = PasswordHash.recommended()
@@ -648,3 +657,89 @@ def crear_comentario(
     db.refresh(nuevo)
 
     return nuevo
+
+# VALORACIÓN DE POSTS 
+
+def _resumen_valoracion(db: Session, blog_id: int, usr_id: int) -> dict:
+    promedio, total = db.execute(
+        select(func.avg(Valoracion.puntos), func.count(Valoracion.id_val))
+        .where(Valoracion.blog_id == blog_id)
+    ).one()
+
+    mia = db.scalar(
+        select(Valoracion.puntos).where(
+            Valoracion.blog_id == blog_id,
+            Valoracion.usr_id == usr_id,
+        )
+    )
+
+    return {
+        "promedio": round(float(promedio), 2) if promedio is not None else 0.0,
+        "total": int(total or 0),
+        "mi_puntuacion": mia,
+    }
+
+
+@app.get(
+    "/blog/{blog_id}/valoracion",
+    response_model=ValoracionResumen,
+)
+def consultar_valoracion(
+    blog_id: int,
+    db: Session = Depends(obtener_sesion),
+    quien: Usuario = Depends(usuario_actual),
+):
+    if db.get(Blog, blog_id) is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Publicación no encontrada",
+        )
+
+    return _resumen_valoracion(db, blog_id, quien.id_usr)
+
+
+@app.put(
+    "/blog/{blog_id}/valoracion",
+    response_model=ValoracionResumen,
+)
+def valorar_blog(
+    blog_id: int,
+    datos: ValoracionCrear,
+    db: Session = Depends(obtener_sesion),
+    quien: Usuario = Depends(usuario_actual),
+):
+    """Crea la valoración del usuario o la reemplaza si ya había votado."""
+    if db.get(Blog, blog_id) is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Publicación no encontrada",
+        )
+
+    existente = db.scalar(
+        select(Valoracion).where(
+            Valoracion.blog_id == blog_id,
+            Valoracion.usr_id == quien.id_usr,
+        )
+    )
+
+    if existente is None:
+        db.add(
+            Valoracion(
+                puntos=datos.puntos,
+                usr_id=quien.id_usr,  # el votante sale del token
+                blog_id=blog_id,
+            )
+        )
+    else:
+        existente.puntos = datos.puntos
+
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="No se pudo registrar la valoración",
+        )
+
+    return _resumen_valoracion(db, blog_id, quien.id_usr)
