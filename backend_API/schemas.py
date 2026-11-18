@@ -63,6 +63,16 @@ class LoginRequest(BaseModel):
     password: str = Field(min_length=1, max_length=128)
 
 
+class SolicitarRecuperacion(BaseModel):
+    mail: str = Field(min_length=5, max_length=150)
+
+
+class RestablecerPassword(BaseModel):
+    correo: str = Field(min_length=5, max_length=150)
+    token: str = Field(min_length=32, max_length=128)
+    password: str = Field(min_length=8, max_length=128)
+
+
 class TokenRespuesta(BaseModel):
     access_token: str
     token_type: str = "bearer"
