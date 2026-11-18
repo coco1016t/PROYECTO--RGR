@@ -96,6 +96,24 @@ CREATE TABLE `usuario` (
 ) ENGINE=InnoDB AUTO_INCREMENT=18 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
+/*Tabla apra valoracion*/
+CREATE TABLE IF NOT EXISTS valoraciones (
+  id_val   INT NOT NULL AUTO_INCREMENT,
+  puntos   INT NOT NULL,
+  fecha    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+                    ON UPDATE CURRENT_TIMESTAMP,
+  usr_id   INT NOT NULL,
+  blog_id  INT NOT NULL,
+  PRIMARY KEY (id_val),
+  -- Un usuario solo puede valorar una vez cada post (si vuelve a votar, se actualiza)
+  UNIQUE KEY uq_valoracion_usr_blog (usr_id, blog_id),
+  CONSTRAINT ck_valoracion_puntos CHECK (puntos BETWEEN 1 AND 5),
+  CONSTRAINT fk_valoracion_usuario FOREIGN KEY (usr_id)
+      REFERENCES usuario (id_usr) ON DELETE CASCADE,
+  CONSTRAINT fk_valoracion_blog FOREIGN KEY (blog_id)
+      REFERENCES blog (id_blog) ON DELETE CASCADE
+);
+
 --
 -- Dumping data for table `usuario`
 --
