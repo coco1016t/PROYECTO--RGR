@@ -6,7 +6,7 @@ from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
-from sqlalchemy import inspect, select
+from sqlalchemy import delete, inspect, select, update
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from pwdlib import PasswordHash
 from database import Base, engine, obtener_sesion
@@ -218,8 +218,14 @@ def actualizar_usuario(
 def eliminar_usuario(
     usuario_id: int,
     db: Session = Depends(obtener_sesion),
-    _admin: Usuario = Depends(solo_admin),
+    admin: Usuario = Depends(solo_admin),
 ):
+    if admin.id_usr == usuario_id:
+        raise HTTPException(
+            status_code=409,
+            detail="No puedes eliminar la cuenta con la que iniciaste sesión",
+        )
+
     usuario = db.get(Usuario, usuario_id)
 
     if usuario is None:
@@ -228,8 +234,25 @@ def eliminar_usuario(
             detail="Usuario no encontrado",
         )
 
-    db.delete(usuario)
-    db.commit()
+    try:
+        # Mantener las publicaciones y quitar las referencias que impiden
+        # borrar al autor en instalaciones existentes de MySQL.
+        db.execute(
+            update(Blog)
+            .where(Blog.usr_id == usuario_id)
+            .values(usr_id=None)
+        )
+        db.execute(
+            delete(Comentario).where(Comentario.usr_id == usuario_id)
+        )
+        db.delete(usuario)
+        db.commit()
+    except SQLAlchemyError:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="No se pudo eliminar el usuario porque tiene datos relacionados",
+        )
 
     return {"mensaje": "Usuario eliminado correctamente"}
 
