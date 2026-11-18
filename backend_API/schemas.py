@@ -77,3 +77,13 @@ class TokenRespuesta(BaseModel):
     access_token: str
     token_type: str = "bearer"
     usuario: UsuarioRespuesta
+
+
+class ValoracionCrear(BaseModel):
+    puntos: int = Field(ge=1, le=5)
+
+
+class ValoracionResumen(BaseModel):
+    promedio: float
+    total: int
+    mi_puntuacion: int | None = None
