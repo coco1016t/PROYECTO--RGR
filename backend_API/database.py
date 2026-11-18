@@ -17,7 +17,7 @@ else:
     url = URL.create(
         drivername="mysql+pymysql",
         username=os.getenv("DB_USER", "root"),
-        password=os.getenv("DB_PASSWORD", "andres04"),
+        password=os.getenv("DB_PASSWORD", ""),
         host=os.getenv("DB_HOST", "127.0.0.1"),
         port=int(os.getenv("DB_PORT", "3306")),
         database=os.getenv("DB_NAME", "bd_aplicacion_movil"),
