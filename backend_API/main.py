@@ -1,11 +1,12 @@
 from pathlib import Path
+import hmac
 from uuid import uuid4
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
-from sqlalchemy import select
+from sqlalchemy import inspect, select
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from pwdlib import PasswordHash
 from database import Base, engine, obtener_sesion
@@ -18,7 +19,9 @@ from schemas import (
     ComentarioCrear,
     ComentarioRespuesta,
     LoginRequest,
+    TokenRespuesta,
 )
+from seguridad import crear_token, usuario_actual, usuario_opcional, solo_admin
 
 password_hash = PasswordHash.recommended()
 UPLOAD_DIR = Path(__file__).resolve().parent / "uploads"
@@ -28,6 +31,16 @@ MAX_IMAGE_SIZE = 10 * 1024 * 1024
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    Base.metadata.create_all(bind=engine)
+    if engine.dialect.name == "mysql":
+        blog_columns = {
+            column["name"] for column in inspect(engine).get_columns("blog")
+        }
+        if "usr_id" not in blog_columns:
+            raise RuntimeError(
+                "La base MySQL necesita la migracion de Paso 2; "
+                "ejecuta backend_API/migracion_paso1_2.sql una sola vez."
+            )
     yield
 
 app = FastAPI(
@@ -58,7 +71,11 @@ app.add_middleware(
 )
 
 
-@app.post("/login", response_model=UsuarioRespuesta)
+# ---------------------------------------------------------------
+# AUTENTICACIÓN (RF001)
+# ---------------------------------------------------------------
+
+@app.post("/login", response_model=TokenRespuesta)
 def iniciar_sesion(
     datos: LoginRequest,
     db: Session = Depends(obtener_sesion),
@@ -71,27 +88,51 @@ def iniciar_sesion(
 
     # Se utiliza el mismo mensaje para no revelar
     # si el correo está registrado.
-    if usuario is None or not password_hash.verify(
-        datos.password,
-        usuario.pass_hash,
+    try:
+        password_valida = usuario is not None and password_hash.verify(
+            datos.password,
+            usuario.pass_hash,
+        )
+    except Exception:
+        # Legacy SQL seeds may contain the literal HASH_DE_PRUEBA marker.
+        password_valida = False
+
+    # Keep accounts that still store their original plain-text password usable,
+    # then upgrade that same password to Argon2 after a successful login.
+    if (
+        not password_valida
+        and usuario is not None
+        and usuario.pass_hash != "HASH_DE_PRUEBA"
+        and not usuario.pass_hash.startswith("$")
+        and hmac.compare_digest(datos.password, usuario.pass_hash)
     ):
+        usuario.pass_hash = password_hash.hash(datos.password)
+        db.commit()
+        password_valida = True
+
+    if not password_valida:
         raise HTTPException(
             status_code=401,
             detail="Correo o contraseña incorrectos",
         )
 
-    # Devuelve únicamente los datos públicos del usuario.
-    return usuario
+    # Devuelve el token de sesión (JWT) junto con los datos públicos.
+    return {
+        "access_token": crear_token(usuario),
+        "token_type": "bearer",
+        "usuario": usuario,
+    }
 
-# Conserva debajo todos tus endpoints existentes:
-# @app.get("/usuarios")
-# @app.post("/usuarios")
-# etc.
 
+# ---------------------------------------------------------------
 # USUARIOS
+# ---------------------------------------------------------------
 
 @app.get("/usuarios", response_model=list[UsuarioRespuesta])
-def listar_usuarios(db: Session = Depends(obtener_sesion)):
+def listar_usuarios(
+    db: Session = Depends(obtener_sesion),
+    _admin: Usuario = Depends(solo_admin),
+):
     return db.scalars(
         select(Usuario).order_by(Usuario.id_usr)
     ).all()
@@ -101,13 +142,18 @@ def listar_usuarios(db: Session = Depends(obtener_sesion)):
 def crear_usuario(
     datos: UsuarioCrear,
     db: Session = Depends(obtener_sesion),
+    quien: Usuario | None = Depends(usuario_opcional),
 ):
+    # El registro es público, pero solo un administrador autenticado
+    # puede crear otro administrador. Cualquier otro caso queda como 2.
+    tipo = datos.tip_usu if (quien is not None and quien.tip_usu == 1) else 2
+
     usuario = Usuario(
         nom_usr=datos.nom_usr.strip(),
         mail=datos.mail.strip().lower(),
         pass_hash=password_hash.hash(datos.password),
         dir_usr=datos.dir_usr,
-        tip_usu=datos.tip_usu,
+        tip_usu=tipo,
     )
 
     db.add(usuario)
@@ -131,7 +177,15 @@ def actualizar_usuario(
     usuario_id: int,
     datos: UsuarioActualizar,
     db: Session = Depends(obtener_sesion),
+    quien: Usuario = Depends(usuario_actual),
 ):
+    # Un usuario solo edita su propio perfil; el admin edita a cualquiera.
+    if quien.tip_usu != 1 and quien.id_usr != usuario_id:
+        raise HTTPException(
+            status_code=403,
+            detail="No puedes modificar a otro usuario",
+        )
+
     usuario = db.get(Usuario, usuario_id)
 
     if usuario is None:
@@ -143,7 +197,9 @@ def actualizar_usuario(
     usuario.nom_usr = datos.nom_usr.strip()
     usuario.mail = datos.mail.strip().lower()
     usuario.dir_usr = datos.dir_usr
-    usuario.tip_usu = datos.tip_usu
+    # Solo el administrador puede cambiar el tipo de usuario.
+    if quien.tip_usu == 1:
+        usuario.tip_usu = datos.tip_usu
 
     try:
         db.commit()
@@ -162,6 +218,7 @@ def actualizar_usuario(
 def eliminar_usuario(
     usuario_id: int,
     db: Session = Depends(obtener_sesion),
+    _admin: Usuario = Depends(solo_admin),
 ):
     usuario = db.get(Usuario, usuario_id)
 
@@ -176,12 +233,32 @@ def eliminar_usuario(
 
     return {"mensaje": "Usuario eliminado correctamente"}
 
-# BLOG
+
+# ---------------------------------------------------------------
+# BLOG (RF002)
+# ---------------------------------------------------------------
 
 @app.get("/blog", response_model=list[BlogRespuesta])
-def listar_blog(db: Session = Depends(obtener_sesion)):
+def listar_blog(
+    db: Session = Depends(obtener_sesion),
+    _quien: Usuario = Depends(usuario_actual),
+):
     return db.scalars(
-        select(Blog).order_by(Blog.id_blog)
+        select(Blog).order_by(Blog.id_blog.desc())
+    ).all()
+
+
+# IMPORTANTE: /blog/mios va antes de /blog/{blog_id}, si no FastAPI
+# intentaría interpretar "mios" como un id.
+@app.get("/blog/mios", response_model=list[BlogRespuesta])
+def listar_mis_posts(
+    db: Session = Depends(obtener_sesion),
+    quien: Usuario = Depends(usuario_actual),
+):
+    return db.scalars(
+        select(Blog)
+        .where(Blog.usr_id == quien.id_usr)
+        .order_by(Blog.id_blog.desc())
     ).all()
 
 
@@ -192,6 +269,7 @@ async def crear_blog(
     imagen: UploadFile = File(...),
     tags: str | None = Form(default=None, max_length=255),
     db: Session = Depends(obtener_sesion),
+    quien: Usuario = Depends(usuario_actual),
 ):
     titulo = titulo.strip()
     descripcion = descripcion.strip()
@@ -232,6 +310,7 @@ async def crear_blog(
         descripcion=descripcion,
         img=ruta_publica,
         tags=tags.strip() if tags and tags.strip() else None,
+        usr_id=quien.id_usr,  # el autor sale del token, no del cliente
     )
 
     db.add(publicacion)
@@ -248,10 +327,11 @@ async def crear_blog(
 
     return publicacion
 
-@app.post("/blog/{blog_id}", response_model=BlogRespuesta)
+@app.get("/blog/{blog_id}", response_model=BlogRespuesta)
 def obtener_blog(
     blog_id: int,
     db: Session = Depends(obtener_sesion),
+    _quien: Usuario = Depends(usuario_actual),
 ):
     publicacion = db.get(Blog, blog_id)
 
@@ -264,15 +344,29 @@ def obtener_blog(
     return publicacion
 
 
-# COMENTARIOS
+# ---------------------------------------------------------------
+# COMENTARIOS (RF003)
+# ---------------------------------------------------------------
 
 @app.get(
-    "/comentarios",
+    "/blog/{blog_id}/comentarios",
     response_model=list[ComentarioRespuesta],
 )
-def listar_comentarios(db: Session = Depends(obtener_sesion)):
+def listar_comentarios_de_post(
+    blog_id: int,
+    db: Session = Depends(obtener_sesion),
+    _quien: Usuario = Depends(usuario_actual),
+):
+    if db.get(Blog, blog_id) is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Publicación no encontrada",
+        )
+
     return db.scalars(
-        select(Comentario).order_by(Comentario.id_com)
+        select(Comentario)
+        .where(Comentario.blog_id == blog_id, Comentario.estatus == 1)
+        .order_by(Comentario.id_com)
     ).all()
 
 
@@ -284,17 +378,13 @@ def listar_comentarios(db: Session = Depends(obtener_sesion)):
 def crear_comentario(
     datos: ComentarioCrear,
     db: Session = Depends(obtener_sesion),
+    quien: Usuario = Depends(usuario_actual),
 ):
-    if not datos.comentario.strip():
+    texto = datos.comentario.strip()
+    if not texto:
         raise HTTPException(
             status_code=422,
             detail="El comentario no puede estar vacío",
-        )
-
-    if db.get(Usuario, datos.usr_id) is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Usuario no encontrado",
         )
 
     if db.get(Blog, datos.blog_id) is None:
@@ -304,8 +394,8 @@ def crear_comentario(
         )
 
     nuevo = Comentario(
-        comentario=datos.comentario.strip(),
-        usr_id=datos.usr_id,
+        comentario=texto,
+        usr_id=quien.id_usr,  # el autor sale del token
         blog_id=datos.blog_id,
         estatus=1,
     )

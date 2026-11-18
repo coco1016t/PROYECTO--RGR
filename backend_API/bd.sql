@@ -1,4 +1,5 @@
-CREATE DATABASE IF NOT EXISTS bd_aplicacion_movil
+CREATE DATABASE IF NOT EXISTS bd_aplicacion_movil;
+USE bd_aplicacion_movil;
 -- MySQL dump 10.13  Distrib 9.7.1, for Win64 (x86_64)
 --
 -- Host: localhost    Database: bd_aplicacion_movil
@@ -15,15 +16,6 @@ CREATE DATABASE IF NOT EXISTS bd_aplicacion_movil
 /*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;
 /*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;
 /*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
-SET @MYSQLDUMP_TEMP_LOG_BIN = @@SESSION.SQL_LOG_BIN;
-SET @@SESSION.SQL_LOG_BIN= 0;
-
---
--- GTID state at the beginning of the backup 
---
-
-SET @@GLOBAL.GTID_PURGED=/*!80000 '+'*/ '43b5ccb6-7709-11f1-bbe3-00ff01d21335:1-236,
-cd3a9338-8531-11f1-9792-14b5cd246ed2:1-1289';
 
 --
 -- Table structure for table `blog`
@@ -38,6 +30,7 @@ CREATE TABLE `blog` (
   `desc` text,
   `img` varchar(500) DEFAULT NULL,
   `tags` varchar(255) DEFAULT NULL,
+  `usr_id` int DEFAULT NULL,
   PRIMARY KEY (`id_blog`)
 ) ENGINE=InnoDB AUTO_INCREMENT=17 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -48,7 +41,7 @@ CREATE TABLE `blog` (
 
 LOCK TABLES `blog` WRITE;
 /*!40000 ALTER TABLE `blog` DISABLE KEYS */;
-INSERT INTO `blog` VALUES (1,'Introduccion a MySQL','Conceptos basicos de bases de datos relacionales y MySQL.','mysql1.jpg','mysql,bd'),(2,'Aprendiendo PHP','Primeros pasos para desarrollar aplicaciones web con PHP.','php1.jpg','php,web'),(3,'HTML y CSS','Creacion de paginas web utilizando HTML y CSS.','htmlcss.jpg','html,css'),(4,'JavaScript Basico','Uso de variables, funciones y eventos en JavaScript.','js.jpg','javascript,frontend'),(5,'musica','playlist de musica para proyectarse.','img5.jpg','musica'),(6,'prueba de que si funcional el metodo POST','Porfavor que si, se incerte en la base de datos','https://picsum.photos/800/400','tecnologia'),(7,'Prueba para ver si se registra','si esta prueba se reggistra en la base de datos lloro',NULL,NULL),(8,'Este es la pruba para reggistro de un BLOG','Se guardara en la base de datos y se mostrara la tabla actualizada donde se reggistro este blog','flutter_application_7\\lib\\imagenes\\fondo.jpg','movil'),(9,'NUEVO BLOG','ESTE SERA EL BLOG DE PRUEBA PARA EL VIDEO',NULL,'movil'),(10,'HOLA','QUE SI FUNCIONE','/uploads/5da04e578744453cb8d2adac504bffce.jpg','Movil'),(11,'HOLA','QUE SI FUNCIONE','/uploads/460ca9559a264cf0b73af1d9ca43d529.jpg','Movil'),(12,'nuevo pokemon','Pruev para ver lo de la imagen','/uploads/ea8ef97bf4834ef8ac0a9b17ade26b30.jpg','tecnologia'),(13,'Titulo prueba','prueba','/uploads/c4b5718f89404e5595c84555712cc4a5.jpg','tecnologia'),(14,'Prueeva para captura de pantalla','si, sirve','/uploads/9aef690423a049a9b99754fd5915d448.jpg','pokemon'),(15,'PRUEBA PARA LAA RESPUESTA DE LA API','RESPUESTA DE API A LA CARGA DE NA IMAGEN','/uploads/8bcea4d43b4843cbba397632a42f5879.jpg','MOVIL'),(16,'prueba para el video 2','prueba por que la primera no me salio','/uploads/320c73b452104167a341d7b5951bb6b0.jpg','trecnologia');
+INSERT INTO `blog` (`id_blog`,`titulo`,`desc`,`img`,`tags`) VALUES (1,'Introduccion a MySQL','Conceptos basicos de bases de datos relacionales y MySQL.','mysql1.jpg','mysql,bd'),(2,'Aprendiendo PHP','Primeros pasos para desarrollar aplicaciones web con PHP.','php1.jpg','php,web'),(3,'HTML y CSS','Creacion de paginas web utilizando HTML y CSS.','htmlcss.jpg','html,css'),(4,'JavaScript Basico','Uso de variables, funciones y eventos en JavaScript.','js.jpg','javascript,frontend'),(5,'musica','playlist de musica para proyectarse.','img5.jpg','musica'),(6,'prueba de que si funcional el metodo POST','Porfavor que si, se incerte en la base de datos','https://picsum.photos/800/400','tecnologia'),(7,'Prueba para ver si se registra','si esta prueba se reggistra en la base de datos lloro',NULL,NULL),(8,'Este es la pruba para reggistro de un BLOG','Se guardara en la base de datos y se mostrara la tabla actualizada donde se reggistro este blog','flutter_application_7\\lib\\imagenes\\fondo.jpg','movil'),(9,'NUEVO BLOG','ESTE SERA EL BLOG DE PRUEBA PARA EL VIDEO',NULL,'movil'),(10,'HOLA','QUE SI FUNCIONE','/uploads/5da04e578744453cb8d2adac504bffce.jpg','Movil'),(11,'HOLA','QUE SI FUNCIONE','/uploads/460ca9559a264cf0b73af1d9ca43d529.jpg','Movil'),(12,'nuevo pokemon','Pruev para ver lo de la imagen','/uploads/ea8ef97bf4834ef8ac0a9b17ade26b30.jpg','tecnologia'),(13,'Titulo prueba','prueba','/uploads/c4b5718f89404e5595c84555712cc4a5.jpg','tecnologia'),(14,'Prueeva para captura de pantalla','si, sirve','/uploads/9aef690423a049a9b99754fd5915d448.jpg','pokemon'),(15,'PRUEBA PARA LAA RESPUESTA DE LA API','RESPUESTA DE API A LA CARGA DE NA IMAGEN','/uploads/8bcea4d43b4843cbba397632a42f5879.jpg','MOVIL'),(16,'prueba para el video 2','prueba por que la primera no me salio','/uploads/320c73b452104167a341d7b5951bb6b0.jpg','trecnologia');
 /*!40000 ALTER TABLE `blog` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -112,7 +105,15 @@ LOCK TABLES `usuario` WRITE;
 INSERT INTO `usuario` VALUES (1,'andres','andres@gmail.com','123456','Buenavista QRO',1),(2,'reynaldo','reynaldo@gmail.com','123456','QRO',1),(5,'Andres','andresgonzalez@gmail.com','$argon2id$v=19$m=65536,t=3,p=4$cnEvb6XFU+CVaHkR2HiixQ$xggX5DCWeZjbnzGD1/QQHKeFXwye8T1LsiT834FpvXY','UTTEQ',2),(6,'Jose perez','uteq@gmail.com','$argon2id$v=19$m=65536,t=3,p=4$GswWKbqQc2tDTKBUJsBKcA$Jm8d0Y/sbM2grkw7Ur0gVYHLycq9wgz+d8StY3l5jQo','uteq',2),(8,'Jose perez','uteq1@gmail.com','$argon2id$v=19$m=65536,t=3,p=4$JnssFWQW/uX3zC8CM6u3QA$Z6Nf3Rvyjye9if2LcsyP2YHR2e3MWKngVbXacldPujA','uteq',2),(10,'string','string','$argon2id$v=19$m=65536,t=3,p=4$G+J4ymz3raY43xl+GIbOuQ$FRqmYkrnoDa7h0XPnZrmC9C8hkVnX0v2ojwWmvP/Y+Y','string',1),(11,'Prueba Login','prueba@gmail.com','$argon2id$v=19$m=65536,t=3,p=4$P2SR0V3ShrEUro/HsU3StQ$NO2cPmhS0Y9IwF3nRiA+3tBox/pRID3rCbXEzG88/A0','QRO',1),(12,'Prueba Blog','blog@gmail.com','$argon2id$v=19$m=65536,t=3,p=4$V9eAhACnPSkl5t03XB3nQw$puoAY7JAT8oysIn5/iEd701tAPSZqPf/clu43kF5eg0','QRO',2),(13,'registrobasededatos','usario@gmail.com','$argon2id$v=19$m=65536,t=3,p=4$o/QzCK8sRR5M8mAA2VE+8w$FS5KExAYFGMxIA+R9JWIB/BEYaRlJ4ky1YSmP+U89wE','santarosa Jauregui',1),(14,'Adriana Y Contreras Alvarez','adri@gmail.com','$argon2id$v=19$m=65536,t=3,p=4$IasLlWhBshw6HSZKP6iGyQ$Tvk7eOt1tNfK1uWqOl2J0UeALvJ4S19HdoRG8wrZhxQ',NULL,2),(15,'Andres Gozalez Licea','andre@gmail.com','$argon2id$v=19$m=65536,t=3,p=4$56D7g5J7YEpP3LAD6B5Fug$jv8o6gWScT1JfuBtUIUvYM4ukWtPd++O8j4YOQxZJxg','Santa Rosa',1),(16,'rube azpeitia','rubas@gmail.com','$argon2id$v=19$m=65536,t=3,p=4$JTatbbEB/Ss77PQ+nP4FJQ$dTvPxkH7G55cx4qYnU3uJBA1oZGyXJTJmQun3HVrlLg',NULL,2),(17,'reynaldo Gonzalez','rey@uteq.edu.mx','$argon2id$v=19$m=65536,t=3,p=4$y3YLwA/ocve742+x7bnfOA$1aoTKYkU77vCzpKk+2vPwodQE3DldjFBW1CiyG6fvyc',NULL,1);
 /*!40000 ALTER TABLE `usuario` ENABLE KEYS */;
 UNLOCK TABLES;
-SET @@SESSION.SQL_LOG_BIN = @MYSQLDUMP_TEMP_LOG_BIN;
+
+-- Add the author foreign key after both blog and usuario exist.
+ALTER TABLE `blog`
+  ADD CONSTRAINT `fk_blog_usuario`
+  FOREIGN KEY (`usr_id`) REFERENCES `usuario` (`id_usr`)
+  ON DELETE SET NULL;
+
+-- Legacy posts in this snapshot are attributed to the original account (id 1).
+UPDATE `blog` SET `usr_id` = 1 WHERE `usr_id` IS NULL;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
 /*!40101 SET SQL_MODE=@OLD_SQL_MODE */;

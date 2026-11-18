@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../services/post_service.dart';
+import '../services/sesion_service.dart';
 import '../widgets/admin_drawer.dart';
 
 class AddBlogPage extends StatefulWidget {
@@ -30,6 +31,8 @@ class _AddBlogPageState extends State<AddBlogPage> {
     final args = ModalRoute.of(context)?.settings.arguments;
     if (args is Map<String, dynamic>) {
       _usuario = Map<String, dynamic>.from(args);
+    } else if (SesionService.instance.activa) {
+      _usuario = Map<String, dynamic>.from(SesionService.instance.usuario);
     }
   }
 
@@ -111,7 +114,9 @@ class _AddBlogPageState extends State<AddBlogPage> {
     final nombre = _usuario['nom_usr']?.toString() ?? 'Administrador';
     return Scaffold(
       appBar: AppBar(title: const Text('Agregar blog')),
-      drawer: AdminDrawer(usuario: _usuario, rutaActual: '/add-blog'),
+      drawer: (_usuario['tip_usu'] as num?)?.toInt() == 1
+          ? AdminDrawer(usuario: _usuario, rutaActual: '/add-blog')
+          : null,
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 700),

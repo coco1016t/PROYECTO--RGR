@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/post_model.dart';
 import '../services/post_service.dart';
+import '../services/sesion_service.dart';
 import '../widgets/post_card.dart';
 import 'post_detail_page.dart';
 import '../widgets/admin_drawer.dart';
@@ -15,6 +16,7 @@ class BlogPage extends StatefulWidget {
 class _BlogPageState extends State<BlogPage> {
   final PostService postService = PostService();
   late Future<List<PostModel>> futurePosts;
+  late Future<List<PostModel>> futureMisPosts;
   String nombreUsuario = 'Usuario';
   Map<String, dynamic> usuarioActual = {
     'nom_usr': 'Usuario',
@@ -33,13 +35,9 @@ class _BlogPageState extends State<BlogPage> {
       if (argumento is Map<String, dynamic>) {
         usuarioActual = Map<String, dynamic>.from(argumento);
         nombreUsuario = usuarioActual['nom_usr']?.toString() ?? 'Usuario';
-      } else if (argumento is String && argumento.isNotEmpty) {
-        nombreUsuario = argumento;
-        usuarioActual = {
-          'nom_usr': nombreUsuario,
-          'mail': '',
-          'tip_usu': 2,
-        };
+      } else if (SesionService.instance.activa) {
+        usuarioActual = Map<String, dynamic>.from(SesionService.instance.usuario);
+        nombreUsuario = usuarioActual['nom_usr']?.toString() ?? 'Usuario';
       }
       argumentoLeido = true;
     }
@@ -49,100 +47,97 @@ class _BlogPageState extends State<BlogPage> {
   void initState() {
     super.initState();
     futurePosts = postService.obtenerPosts();
+    futureMisPosts = postService.obtenerMisPosts();
   }
 
   void recargarPosts() {
     setState(() {
       futurePosts = postService.obtenerPosts();
+      futureMisPosts = postService.obtenerMisPosts();
     });
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Mi Blog'),
-            Text(
-              'Bienvenido, $nombreUsuario',
-              style: const TextStyle(fontSize: 12),
-            ),
-          ],
-        ),
-        actions: [
-          IconButton(
-            tooltip: 'Actualizar',
-            icon: const Icon(Icons.refresh),
-            onPressed: recargarPosts,
-          ),
-          IconButton(
-            tooltip: 'Cerrar sesión',
-            icon: const Icon(Icons.logout),
-            onPressed: () {
-              Navigator.pushNamedAndRemoveUntil(
-                context,
-                '/login',
-                (route) => false,
-              );
-            },
-          ),
-        ],
+  void cerrarSesion() {
+    SesionService.instance.cerrar();
+    Navigator.pushNamedAndRemoveUntil(
+      context,
+      '/login',
+      (route) => false,
+    );
+  }
+
+  Future<void> abrirDetalle(PostModel post) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        builder: (context) => PostDetailPage(post: post),
       ),
-      drawer: (usuarioActual['tip_usu'] as num? ?? 2).toInt() == 1
-          ? AdminDrawer(usuario: usuarioActual, rutaActual: '/blog')
-          : null,
-      body: FutureBuilder<List<PostModel>>(
-        future: futurePosts,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
-              child: CircularProgressIndicator(),
-            );
-          }
+    );
+  }
 
-          if (snapshot.hasError) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.cloud_off, size: 45),
-                    const SizedBox(height: 12),
-                    const Text(
-                      'No fue posible cargar el blog.',
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '${snapshot.error}',
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 12),
-                    ElevatedButton(
-                      onPressed: recargarPosts,
-                      child: const Text('Reintentar'),
-                    ),
-                  ],
-                ),
+  Future<void> nuevaPublicacion() async {
+    await Navigator.pushNamed(
+      context,
+      '/add-blog',
+      arguments: usuarioActual,
+    );
+    if (!mounted) return;
+    recargarPosts();
+  }
+
+  Widget _lista(
+    Future<List<PostModel>> futuro,
+    String textoVacio,
+    bool mostrarBienvenida,
+  ) {
+    return FutureBuilder<List<PostModel>>(
+      future: futuro,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(
+            child: CircularProgressIndicator(),
+          );
+        }
+
+        if (snapshot.hasError) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.cloud_off, size: 45),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'No fue posible cargar el blog.',
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '${snapshot.error}'.replaceFirst('Exception: ', ''),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 12),
+                  ElevatedButton(
+                    onPressed: recargarPosts,
+                    child: const Text('Reintentar'),
+                  ),
+                ],
               ),
-            );
-          }
+            ),
+          );
+        }
 
-          final posts = snapshot.data ?? <PostModel>[];
+        final posts = snapshot.data ?? <PostModel>[];
 
-          if (posts.isEmpty) {
-            return const Center(
-              child: Text('No hay publicaciones registradas.'),
-            );
-          }
+        if (posts.isEmpty) {
+          return Center(child: Text(textoVacio));
+        }
 
-          return ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
+        return ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            if (mostrarBienvenida) ...[
               const Text(
                 'Bienvenido',
                 style: TextStyle(
@@ -160,22 +155,69 @@ class _BlogPageState extends State<BlogPage> {
                 ),
               ),
               const SizedBox(height: 20),
-              ...posts.map(
-                (post) => PostCard(
-                  post: post,
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute<void>(
-                        builder: (context) => PostDetailPage(post: post),
-                      ),
-                    );
-                  },
-                ),
+            ],
+            ...posts.map(
+              (post) => PostCard(
+                post: post,
+                onTap: () => abrirDetalle(post),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        appBar: AppBar(
+          title: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Mi Blog'),
+              Text(
+                'Bienvenido, $nombreUsuario',
+                style: const TextStyle(fontSize: 12),
               ),
             ],
-          );
-        },
+          ),
+          actions: [
+            IconButton(
+              tooltip: 'Actualizar',
+              icon: const Icon(Icons.refresh),
+              onPressed: recargarPosts,
+            ),
+            IconButton(
+              tooltip: 'Cerrar sesión',
+              icon: const Icon(Icons.logout),
+              onPressed: cerrarSesion,
+            ),
+          ],
+          bottom: const TabBar(
+            tabs: [
+              Tab(text: 'Todos'),
+              Tab(text: 'Mis posts'),
+            ],
+          ),
+        ),
+        drawer: (usuarioActual['tip_usu'] as num? ?? 2).toInt() == 1
+            ? AdminDrawer(usuario: usuarioActual, rutaActual: '/blog')
+            : null,
+        floatingActionButton: FloatingActionButton.extended(
+          onPressed: nuevaPublicacion,
+          icon: const Icon(Icons.add),
+          label: const Text('Nueva publicación'),
+        ),
+        body: TabBarView(
+          children: [
+            _lista(futurePosts, 'No hay publicaciones registradas.', true),
+            _lista(futureMisPosts, 'Aún no has publicado nada.', false),
+          ],
+        ),
       ),
     );
   }

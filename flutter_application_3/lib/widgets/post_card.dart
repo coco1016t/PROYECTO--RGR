@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/post_model.dart';
 import '../services/post_service.dart';
+import '../services/sesion_service.dart';
 
 class PostCard extends StatelessWidget {
   final PostModel post;
@@ -79,11 +80,25 @@ class PostCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  const Row(
+                  Row(
                     children: [
-                      Icon(Icons.article_outlined, size: 18),
-                      SizedBox(width: 5),
-                      Text('Leer publicación'),
+                      const Icon(Icons.person_outline, size: 18),
+                      const SizedBox(width: 5),
+                      Expanded(
+                        child: Text(
+                          post.usuarioId != null &&
+                                  post.usuarioId ==
+                                      SesionService.instance.idUsuario
+                              ? 'Publicado por ti'
+                              : (post.autor.isEmpty
+                                  ? 'Autor desconocido'
+                                  : 'Por ${post.autor}'),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const Icon(Icons.article_outlined, size: 18),
+                      const SizedBox(width: 5),
+                      const Text('Leer'),
                     ],
                   ),
                 ],

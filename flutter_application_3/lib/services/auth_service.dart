@@ -1,9 +1,11 @@
 
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import '../config/api_config.dart';
+import 'sesion_service.dart';
 
 class AuthService {
-  static const String baseUrl = 'http://127.0.0.1:8000';
+  static const String baseUrl = ApiConfig.baseUrl;
 
   String? validarLogin({
     required String usuario,
@@ -43,6 +45,9 @@ class AuthService {
     return null;
   }
 
+  /// Inicia sesión: la API responde {access_token, token_type, usuario}.
+  /// Se guarda el token en SesionService y se devuelve solo el usuario,
+  /// así LoginPage sigue funcionando igual que antes.
   Future<Map<String, dynamic>> autenticar({
     required String correo,
     required String password,
@@ -64,8 +69,15 @@ class AuthService {
     final dynamic resultado = jsonDecode(respuesta.body);
 
     if (respuesta.statusCode == 200 &&
-        resultado is Map<String, dynamic>) {
-      return resultado;
+        resultado is Map<String, dynamic> &&
+        resultado['access_token'] != null &&
+        resultado['usuario'] is Map<String, dynamic>) {
+      final usuario = resultado['usuario'] as Map<String, dynamic>;
+      await SesionService.instance.iniciar(
+        resultado['access_token'] as String,
+        usuario,
+      );
+      return usuario;
     }
 
     if (respuesta.statusCode == 401) {

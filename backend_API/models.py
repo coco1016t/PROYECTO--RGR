@@ -2,6 +2,7 @@ from sqlalchemy import (
     Column, Integer, String, Text,
     DateTime, ForeignKey, func
 )
+from sqlalchemy.orm import relationship
 from database import Base
 class Usuario(Base):
     __tablename__ = "usuario"
@@ -19,6 +20,17 @@ class Blog(Base):
     descripcion = Column("desc", Text, nullable=True)
     img = Column(String(500), nullable=True)
     tags = Column(String(255), nullable=True)
+    # Autor de la publicación (RF002: posts propios y de otros usuarios)
+    usr_id = Column(
+        Integer,
+        ForeignKey("usuario.id_usr", ondelete="SET NULL"),
+        nullable=True,
+    )
+    usuario = relationship("Usuario")
+
+    @property
+    def autor(self):
+        return self.usuario.nom_usr if self.usuario else None
 class Comentario(Base):
     __tablename__ = "comentarios"
     id_com = Column(Integer, primary_key=True, index=True)
@@ -39,3 +51,8 @@ class Comentario(Base):
         ForeignKey("blog.id_blog"),
         nullable=False,
     )
+    usuario = relationship("Usuario")
+
+    @property
+    def autor(self):
+        return self.usuario.nom_usr if self.usuario else None

@@ -36,12 +36,14 @@ class BlogRespuesta(BaseModel):
     descripcion: str | None = None
     img: str | None = None
     tags: str | None = None
+    usr_id: int | None = None
+    autor: str | None = None
     model_config = ConfigDict(from_attributes=True)
 
 
 class ComentarioCrear(BaseModel):
-    comentario: str = Field(min_length=1)
-    usr_id: int
+    # El autor (usr_id) ya no viaja en el body: se toma del token.
+    comentario: str = Field(min_length=1, max_length=1000)
     blog_id: int
 
 
@@ -52,11 +54,16 @@ class ComentarioRespuesta(BaseModel):
     estatus: int
     usr_id: int
     blog_id: int
+    autor: str | None = None
 
-    model_config = ConfigDict(from_attributes=True
-    )
+    model_config = ConfigDict(from_attributes=True)
     
 class LoginRequest(BaseModel):
     mail: str = Field(min_length=5, max_length=150)
     password: str = Field(min_length=1, max_length=128)
-    
+
+
+class TokenRespuesta(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    usuario: UsuarioRespuesta

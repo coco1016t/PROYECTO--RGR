@@ -1,14 +1,22 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import '../config/api_config.dart';
 import '../models/comentario_model.dart';
+import 'sesion_service.dart';
 
 class ComentarioService {
-  static const String baseUrl = 'http://127.0.0.1:8000';
+  static const String baseUrl = ApiConfig.baseUrl;
 
-  Future<List<ComentarioModel>> obtenerComentarios() async {
-    final respuesta = await http.get(
-      Uri.parse('$baseUrl/comentarios'),
-    );
+  /// GET /blog/{id}/comentarios -> comentarios de una publicación.
+  Future<List<ComentarioModel>> obtenerComentarios(int blogId) async {
+    final respuesta = await http
+        .get(
+          Uri.parse('$baseUrl/blog/$blogId/comentarios'),
+          headers: SesionService.instance.headers(),
+        )
+        .timeout(const Duration(seconds: 10));
+
+    SesionService.instance.verificarSesion(respuesta.statusCode);
 
     if (respuesta.statusCode != 200) {
       throw Exception('Error al consultar comentarios');
@@ -25,19 +33,32 @@ class ComentarioService {
         .toList();
   }
 
-  Future<void> agregarComentario(
-    ComentarioModel comentario,
-  ) async {
-    final respuesta = await http.post(
-      Uri.parse('$baseUrl/comentarios'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode(comentario.toJsonCrear()),
-    );
+  /// POST /comentarios. El autor lo determina la API con el token.
+  Future<ComentarioModel> agregarComentario({
+    required int blogId,
+    required String texto,
+  }) async {
+    final respuesta = await http
+        .post(
+          Uri.parse('$baseUrl/comentarios'),
+          headers: SesionService.instance.headers(json: true),
+          body: jsonEncode({
+            'comentario': texto.trim(),
+            'blog_id': blogId,
+          }),
+        )
+        .timeout(const Duration(seconds: 10));
+
+    SesionService.instance.verificarSesion(respuesta.statusCode);
 
     if (respuesta.statusCode != 201) {
       throw Exception(
         'No se pudo registrar el comentario: ${respuesta.body}',
       );
     }
+
+    return ComentarioModel.fromJson(
+      jsonDecode(respuesta.body) as Map<String, dynamic>,
+    );
   }
 }

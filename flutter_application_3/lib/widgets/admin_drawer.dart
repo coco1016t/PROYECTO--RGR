@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/sesion_service.dart';
 
 class AdminDrawer extends StatelessWidget {
   final Map<String, dynamic> usuario;
@@ -53,6 +54,7 @@ class AdminDrawer extends StatelessWidget {
               title: const Text('Cerrar sesión',
                   style: TextStyle(color: Colors.red)),
               onTap: () {
+                SesionService.instance.cerrar();
                 Navigator.pushNamedAndRemoveUntil(
                   context, '/login', (route) => false,
                 );

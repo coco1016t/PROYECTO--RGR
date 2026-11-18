@@ -5,6 +5,7 @@ class ComentarioModel {
   final int estatus;
   final int usuarioId;
   final int blogId;
+  final String autor;
 
   ComentarioModel({
     required this.id,
@@ -13,6 +14,7 @@ class ComentarioModel {
     required this.estatus,
     required this.usuarioId,
     required this.blogId,
+    this.autor = '',
   });
 
   factory ComentarioModel.fromJson(Map<String, dynamic> json) {
@@ -23,14 +25,7 @@ class ComentarioModel {
       estatus: json['estatus'] as int,
       usuarioId: json['usr_id'] as int,
       blogId: json['blog_id'] as int,
+      autor: json['autor']?.toString() ?? '',
     );
-  }
-
-  Map<String, dynamic> toJsonCrear() {
-    return {
-      'comentario': comentario,
-      'usr_id': usuarioId,
-      'blog_id': blogId,
-    };
   }
 }

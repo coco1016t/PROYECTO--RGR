@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/user_model.dart';
 import '../services/user_service.dart';
+import '../services/sesion_service.dart';
 import '../widgets/admin_drawer.dart';
 
 class UsersPage extends StatefulWidget {
@@ -339,6 +340,7 @@ class _UsersPageState extends State<UsersPage> {
           ),
           TextButton.icon(
             onPressed: () {
+              SesionService.instance.cerrar();
               Navigator.pushNamedAndRemoveUntil(
                 context,
                 '/login',
