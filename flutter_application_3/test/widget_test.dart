@@ -9,10 +9,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:flutter_application_3/main.dart';
+import 'package:flutter_application_3/screens/forgot_password_page.dart';
 import 'package:flutter_application_3/screens/users_page.dart';
 
 void main() {
-  testWidgets('login page fits on a narrow screen', (WidgetTester tester) async {
+  testWidgets('login page fits on a narrow screen',
+      (WidgetTester tester) async {
     tester.view.physicalSize = const Size(320, 640);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -25,6 +27,41 @@ void main() {
     expect(find.text('Correo electrónico'), findsOneWidget);
     expect(find.text('Contraseña'), findsOneWidget);
     expect(find.text('INGRESAR'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('forgot password page shows email and new password fields',
+      (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      const MaterialApp(home: ForgotPasswordPage()),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('RECUPERAR CONTRASEÑA'), findsOneWidget);
+    expect(find.text('Correo electrónico'), findsOneWidget);
+    expect(find.text('Nueva contraseña'), findsOneWidget);
+    expect(find.text('ACTUALIZAR CONTRASEÑA'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('login link opens forgot password page',
+      (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const LoginApp());
+    await tester.tap(find.text('¿Olvidaste tu contraseña?'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('RECUPERAR CONTRASEÑA'), findsOneWidget);
+    expect(find.text('Nueva contraseña'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
