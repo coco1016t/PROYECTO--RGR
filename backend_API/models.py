@@ -13,6 +13,24 @@ class Usuario(Base):
     pass_hash = Column("pass", String(255), nullable=False)
     dir_usr = Column(String(200), nullable=True)
     tip_usu = Column(Integer, nullable=False, default=1)
+
+
+class TokenRecuperacion(Base):
+    __tablename__ = "codigo_recuperacion"
+
+    id = Column(Integer, primary_key=True, index=True)
+    usr_id = Column(
+        Integer,
+        ForeignKey("usuario.id_usr", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    token_hash = Column("codigo_hash", String(64), nullable=False)
+    expira_en = Column(Integer, nullable=False)
+    creado_en = Column(Integer, nullable=False)
+    intentos = Column(Integer, nullable=False, default=0)
+
+
 class Blog(Base):
     __tablename__ = "blog"
     id_blog = Column(Integer, primary_key=True, index=True)
