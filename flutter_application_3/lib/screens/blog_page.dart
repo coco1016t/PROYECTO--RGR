@@ -73,6 +73,9 @@ class _BlogPageState extends State<BlogPage> {
         builder: (context) => PostDetailPage(post: post),
       ),
     );
+    // Al volver del detalle se recarga para ver el promedio actualizado.
+    if (!mounted) return;
+    recargarPosts();
   }
 
   Future<void> nuevaPublicacion() async {
