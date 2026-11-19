@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import '../models/comentario_model.dart';
+import '../models/mensaje_model.dart';
 import '../models/post_model.dart';
 import '../services/comentario_service.dart';
+import '../services/mensajeria_service.dart';
 import '../services/post_service.dart';
 import '../services/sesion_service.dart';
 import '../widgets/valoracion_estrellas.dart';
+import 'mensajes_page.dart';
 
 class PostDetailPage extends StatefulWidget {
   final PostModel post;
@@ -19,6 +22,7 @@ class PostDetailPage extends StatefulWidget {
 
 class _PostDetailPageState extends State<PostDetailPage> {
   final ComentarioService _servicio = ComentarioService();
+  final MensajeriaService _mensajeriaService = MensajeriaService();
   final TextEditingController _controller = TextEditingController();
   late Future<List<ComentarioModel>> _futuroComentarios;
   bool _enviando = false;
@@ -32,7 +36,51 @@ class _PostDetailPageState extends State<PostDetailPage> {
   @override
   void dispose() {
     _controller.dispose();
+    _mensajeriaService.dispose();
     super.dispose();
+  }
+
+  Future<void> _enviarMensajeAutor() async {
+    final autorId = widget.post.usuarioId;
+    final miId = SesionService.instance.idUsuario;
+    if (autorId == null || autorId == miId) return;
+
+    try {
+      final conversacion = await _mensajeriaService.abrirConversacion(autorId);
+      var nombreContacto = conversacion.contacto.nombre;
+      try {
+        final contactos = await _mensajeriaService.obtenerContactos();
+        nombreContacto = nombreContactoVisible(
+          conversacion.contacto.nombre,
+          conversacion.contacto.id,
+          contactos,
+        );
+      } catch (_) {
+        if (!SesionService.instance.activa) return;
+        nombreContacto =
+            '${conversacion.contacto.nombre} (#${conversacion.contacto.id})';
+      }
+      if (!mounted) return;
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute<void>(
+          builder: (_) => ChatPrivadoPage(
+            conversacionId: conversacion.id,
+            contacto: ContactoMensajeria(
+              id: conversacion.contacto.id,
+              nombre: conversacion.contacto.nombre,
+            ),
+            nombreContacto: nombreContacto,
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.toString().replaceFirst('Exception: ', '')),
+        ),
+      );
+    }
   }
 
   void _recargar() {
@@ -239,6 +287,15 @@ class _PostDetailPageState extends State<PostDetailPage> {
                     Text(
                       'Por ${post.autor}',
                       style: const TextStyle(color: Colors.grey),
+                    ),
+                  ],
+                  if (post.usuarioId != null &&
+                      post.usuarioId != SesionService.instance.idUsuario) ...[
+                    const SizedBox(height: 12),
+                    OutlinedButton.icon(
+                      onPressed: _enviarMensajeAutor,
+                      icon: const Icon(Icons.chat_bubble_outline),
+                      label: const Text('Enviar mensaje'),
                     ),
                   ],
                   const SizedBox(height: 20),
