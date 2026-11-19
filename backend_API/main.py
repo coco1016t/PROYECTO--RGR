@@ -1,7 +1,6 @@
 from pathlib import Path
 import hmac
 from uuid import uuid4
-from pydantic import BaseModel
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
@@ -24,12 +23,7 @@ from schemas import (
     ValoracionCrear,
     ValoracionResumen,
 )
-from seguridad import (
-    crear_token,
-    usuario_actual,
-    usuario_opcional,
-    solo_admin,
-)
+from seguridad import crear_token, usuario_actual, usuario_opcional, solo_admin
 
 password_hash = PasswordHash.recommended()
 UPLOAD_DIR = Path(__file__).resolve().parent / "uploads"
@@ -133,42 +127,6 @@ def iniciar_sesion(
 
 
 # ---------------------------------------------------------------
-# RECUPERAR CONTRASEÑA (UPDATE directo por correo)
-# ---------------------------------------------------------------
-
-class ActualizarPasswordRequest(BaseModel):
-    mail: str
-    password: str
-
-
-@app.post("/password-reset/update")
-def actualizar_password(
-    datos: ActualizarPasswordRequest,
-    db: Session = Depends(obtener_sesion),
-):
-    correo = datos.mail.strip().lower()
-
-    if len(datos.password) < 8:
-        raise HTTPException(
-            status_code=400,
-            detail="La contraseña debe tener al menos 8 caracteres",
-        )
-
-    usuario = db.scalar(select(Usuario).where(Usuario.mail == correo))
-    if usuario is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Correo no registrado",
-        )
-
-    # UPDATE usuario SET pass = <hash argon2> WHERE mail = <correo>
-    usuario.pass_hash = password_hash.hash(datos.password)
-    db.commit()
-
-    return {"mensaje": "La contraseña se actualizó correctamente"}
-
-
-# ---------------------------------------------------------------
 # USUARIOS
 # ---------------------------------------------------------------
 
@@ -213,8 +171,6 @@ def crear_usuario(
         )
 
     return usuario
-
-
 @app.put(
     "/usuarios/{usuario_id}",
     response_model=UsuarioRespuesta,
@@ -284,14 +240,40 @@ def eliminar_usuario(
 # BLOG (RF002)
 # ---------------------------------------------------------------
 
+def _adjuntar_valoraciones(db: Session, posts: list[Blog]) -> list[Blog]:
+    """Agrega a cada post su promedio y total de valoraciones (1 sola consulta)."""
+    ids = [p.id_blog for p in posts]
+    datos: dict[int, tuple[float, int]] = {}
+
+    if ids:
+        filas = db.execute(
+            select(
+                Valoracion.blog_id,
+                func.avg(Valoracion.puntos),
+                func.count(Valoracion.id_val),
+            )
+            .where(Valoracion.blog_id.in_(ids))
+            .group_by(Valoracion.blog_id)
+        ).all()
+        datos = {b: (float(a), int(c)) for b, a, c in filas}
+
+    for p in posts:
+        promedio, total = datos.get(p.id_blog, (0.0, 0))
+        p.promedio = round(promedio, 2)
+        p.total_valoraciones = total
+
+    return posts
+
+
 @app.get("/blog", response_model=list[BlogRespuesta])
 def listar_blog(
     db: Session = Depends(obtener_sesion),
     _quien: Usuario = Depends(usuario_actual),
 ):
-    return db.scalars(
+    posts = db.scalars(
         select(Blog).order_by(Blog.id_blog.desc())
     ).all()
+    return _adjuntar_valoraciones(db, list(posts))
 
 
 # IMPORTANTE: /blog/mios va antes de /blog/{blog_id}, si no FastAPI
@@ -301,11 +283,12 @@ def listar_mis_posts(
     db: Session = Depends(obtener_sesion),
     quien: Usuario = Depends(usuario_actual),
 ):
-    return db.scalars(
+    posts = db.scalars(
         select(Blog)
         .where(Blog.usr_id == quien.id_usr)
         .order_by(Blog.id_blog.desc())
     ).all()
+    return _adjuntar_valoraciones(db, list(posts))
 
 
 @app.post("/blog", response_model=BlogRespuesta, status_code=201)
@@ -372,7 +355,6 @@ async def crear_blog(
     db.refresh(publicacion)
 
     return publicacion
-
 
 @app.get("/blog/{blog_id}", response_model=BlogRespuesta)
 def obtener_blog(
@@ -455,10 +437,11 @@ def crear_comentario(
 
 
 # ---------------------------------------------------------------
-# VALORACIÓN DE POSTS
+# VALORACIÓN DE POSTS (RF005)
 # ---------------------------------------------------------------
 
 def _resumen_valoracion(db: Session, blog_id: int, usr_id: int) -> dict:
+    """Promedio, total de votos y la puntuación del usuario con sesión."""
     promedio, total = db.execute(
         select(func.avg(Valoracion.puntos), func.count(Valoracion.id_val))
         .where(Valoracion.blog_id == blog_id)
