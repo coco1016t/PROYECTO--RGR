@@ -1,0 +1,60 @@
+BASE DE DATOS ACTUALIZADA — PROYECTO RGR 2026
+
+CONTENIDO DE ESTA CARPETA
+
+1. bd_aplicacion_movil_actualizada.sql
+   Volcado de la instancia XAMPP actual bd_aplicacion_movil, generado el
+   18/11/2026. Incluye el esquema y registros actuales de la aplicacion. Las
+   tablas de mensajeria se crean vacias en esta copia para no compartir chats
+   privados.
+
+2. migracion_mensajeria.sql
+   Migracion aditiva para quien ya tenga una copia anterior de
+   bd_aplicacion_movil. Agrega las tablas de mensajeria sin reemplazar el
+   resto de las tablas ni sus datos.
+
+QUE ARCHIVO DEBO IMPORTAR
+
+- Base nueva o vacia: importar bd_aplicacion_movil_actualizada.sql.
+  ATENCION: es un volcado completo que elimina y vuelve a crear las tablas.
+  No importarlo sobre una base con datos que se quieran conservar.
+- Base anterior con datos que se quieran conservar: hacer un respaldo e
+  importar solo migracion_mensajeria.sql dentro de bd_aplicacion_movil.
+- No hace falta ejecutar ambos archivos para una instalacion nueva.
+
+PARA USAR LA FUNCION DE MENSAJERIA
+
+La base de datos por si sola no incluye la interfaz ni las rutas de la API.
+Tus companeros deben descargar/sincronizar tambien la version actualizada del
+proyecto, en particular estos archivos:
+
+Backend FastAPI:
+- backend_API/main.py
+- backend_API/models.py
+- backend_API/schemas.py
+- backend_API/requirements.txt (instalar dependencias con pip)
+- backend_API/database.py
+
+Flutter:
+- flutter_application_3/lib/models/mensaje_model.dart
+- flutter_application_3/lib/services/mensajeria_service.dart
+- flutter_application_3/lib/screens/mensajes_page.dart
+- flutter_application_3/lib/main.dart
+- flutter_application_3/lib/widgets/admin_drawer.dart
+- flutter_application_3/lib/screens/blog_page.dart
+- flutter_application_3/lib/screens/post_detail_page.dart
+- flutter_application_3/pubspec.yaml (ejecutar flutter pub get)
+
+Tambien se actualizaron README.md y backend_API/mensajeria.md con instrucciones
+y documentacion. Lo mas sencillo es descargar/sincronizar el proyecto completo
+en su version actual, no solo esta carpeta.
+
+Cada companero debe configurar su propio backend_API/.env con sus datos locales
+de MySQL y una clave JWT. No copiar ni compartir el archivo .env de otra maquina.
+
+El volcado conserva los registros actuales de la instancia local (incluidas
+cuentas de usuario y publicaciones), pero omite las filas privadas de
+mensajeria. En XAMPP habia 1 conversacion y 2 mensajes al exportar; esos datos
+no se copiaron y siguen intactos en la base local del autor. Compartir el
+volcado solo con el equipo del proyecto; no subirlo a un repositorio publico.
+El archivo .env de cada maquina no forma parte de esta carpeta.
