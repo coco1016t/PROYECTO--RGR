@@ -38,6 +38,9 @@ class BlogRespuesta(BaseModel):
     tags: str | None = None
     usr_id: int | None = None
     autor: str | None = None
+    # Promedio de estrellas (RF005) para mostrarlo en la lista de posts
+    promedio: float = 0.0
+    total_valoraciones: int = 0
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -61,16 +64,6 @@ class ComentarioRespuesta(BaseModel):
 class LoginRequest(BaseModel):
     mail: str = Field(min_length=5, max_length=150)
     password: str = Field(min_length=1, max_length=128)
-
-
-class SolicitarRecuperacion(BaseModel):
-    mail: str = Field(min_length=5, max_length=150)
-
-
-class RestablecerPassword(BaseModel):
-    correo: str = Field(min_length=5, max_length=150)
-    token: str = Field(min_length=32, max_length=128)
-    password: str = Field(min_length=8, max_length=128)
 
 
 class TokenRespuesta(BaseModel):
