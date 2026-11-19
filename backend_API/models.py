@@ -1,7 +1,7 @@
 from sqlalchemy import (
     Column, Integer, String, Text,
     DateTime, ForeignKey, func,
-    UniqueConstraint, CheckConstraint
+    UniqueConstraint, CheckConstraint, Index, text,
 )
 from sqlalchemy.orm import relationship
 from database import Base
@@ -103,3 +103,116 @@ class Valoracion(Base):
         ForeignKey("blog.id_blog", ondelete="CASCADE"),
         nullable=False,
     )
+
+
+class Conversacion(Base):
+    __tablename__ = "conversaciones"
+    __table_args__ = (
+        UniqueConstraint(
+            "usuario_a_id",
+            "usuario_b_id",
+            name="uq_conversacion_pareja",
+        ),
+        CheckConstraint(
+            "usuario_a_id < usuario_b_id",
+            name="ck_conversacion_orden",
+        ),
+        Index("ix_conversacion_usuario_a", "usuario_a_id"),
+        Index("ix_conversacion_usuario_b", "usuario_b_id"),
+        {
+            "mysql_engine": "InnoDB",
+            "mysql_charset": "utf8mb4",
+            "mysql_collate": "utf8mb4_unicode_ci",
+        },
+    )
+
+    id_conversacion = Column(Integer, primary_key=True, autoincrement=True)
+    usuario_a_id = Column(
+        Integer,
+        ForeignKey(
+            "usuario.id_usr",
+            name="fk_conversacion_usuario_a",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+    )
+    usuario_b_id = Column(
+        Integer,
+        ForeignKey(
+            "usuario.id_usr",
+            name="fk_conversacion_usuario_b",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+    )
+    creada_en = Column(
+        DateTime,
+        nullable=False,
+        server_default=func.current_timestamp(),
+    )
+
+    usuario_a = relationship("Usuario", foreign_keys=[usuario_a_id])
+    usuario_b = relationship("Usuario", foreign_keys=[usuario_b_id])
+    mensajes = relationship(
+        "Mensaje",
+        back_populates="conversacion",
+        cascade="all, delete-orphan",
+        order_by="Mensaje.id_mensaje",
+    )
+
+
+class Mensaje(Base):
+    __tablename__ = "mensajes"
+    __table_args__ = (
+        Index(
+            "ix_mensaje_conversacion",
+            "id_conversacion",
+            "id_mensaje",
+        ),
+        Index(
+            "ix_mensaje_no_leidos",
+            "id_conversacion",
+            "emisor_id",
+            "leido_en",
+        ),
+        Index("ix_mensaje_emisor", "emisor_id"),
+        {
+            "mysql_engine": "InnoDB",
+            "mysql_charset": "utf8mb4",
+            "mysql_collate": "utf8mb4_unicode_ci",
+        },
+    )
+
+    id_mensaje = Column(Integer, primary_key=True, autoincrement=True)
+    id_conversacion = Column(
+        Integer,
+        ForeignKey(
+            "conversaciones.id_conversacion",
+            name="fk_mensaje_conversacion",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+    )
+    emisor_id = Column(
+        Integer,
+        ForeignKey(
+            "usuario.id_usr",
+            name="fk_mensaje_emisor",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+    )
+    contenido = Column(String(2000), nullable=False)
+    fecha_envio = Column(
+        DateTime,
+        nullable=False,
+        server_default=func.current_timestamp(),
+    )
+    leido_en = Column(
+        DateTime,
+        nullable=True,
+        server_default=text("NULL"),
+    )
+
+    conversacion = relationship("Conversacion", back_populates="mensajes")
+    emisor = relationship("Usuario")
