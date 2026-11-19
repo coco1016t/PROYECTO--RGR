@@ -1,10 +1,10 @@
-CREATE DATABASE IF NOT EXISTS bd_aplicacion_movil;
+CREATE DATABASE IF NOT EXISTS bd_aplicacion_movil CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE bd_aplicacion_movil;
--- MySQL dump 10.13  Distrib 9.7.1, for Win64 (x86_64)
+-- MySQL/MariaDB compatible dump for MySQL 8.0.16+ and MariaDB 10.4+
 --
 -- Host: localhost    Database: bd_aplicacion_movil
 -- ------------------------------------------------------
--- Server version	9.7.1
+-- Schema compatibility target: MySQL 8.0.16+ / MariaDB 10.4+
 
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
 /*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
@@ -14,6 +14,18 @@ USE bd_aplicacion_movil;
 /*!40103 SET TIME_ZONE='+00:00' */;
 /*!40014 SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=0 */;
 /*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;
+
+-- Drop dependientes antes de reconstruir las tablas principales.
+DROP TABLE IF EXISTS `mensajes`;
+DROP TABLE IF EXISTS `conversaciones`;
+DROP TABLE IF EXISTS `codigo_recuperacion`;
+DROP TABLE IF EXISTS `valoraciones`;
+DROP TABLE IF EXISTS `comentarios`;
+DROP TABLE IF EXISTS `blog`;
+DROP TABLE IF EXISTS `usuario`;
+
+
+
 /*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;
 /*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
 
@@ -21,7 +33,7 @@ USE bd_aplicacion_movil;
 -- Table structure for table `blog`
 --
 
-DROP TABLE IF EXISTS `blog`;
+
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `blog` (
@@ -32,7 +44,7 @@ CREATE TABLE `blog` (
   `tags` varchar(255) DEFAULT NULL,
   `usr_id` int DEFAULT NULL,
   PRIMARY KEY (`id_blog`)
-) ENGINE=InnoDB AUTO_INCREMENT=17 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=17 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -49,7 +61,7 @@ UNLOCK TABLES;
 -- Table structure for table `comentarios`
 --
 
-DROP TABLE IF EXISTS `comentarios`;
+
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `comentarios` (
@@ -64,7 +76,7 @@ CREATE TABLE `comentarios` (
   KEY `fk_comentario_blog` (`blog_id`),
   CONSTRAINT `fk_comentario_blog` FOREIGN KEY (`blog_id`) REFERENCES `blog` (`id_blog`),
   CONSTRAINT `fk_comentario_usuario` FOREIGN KEY (`usr_id`) REFERENCES `usuario` (`id_usr`)
-) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -81,7 +93,7 @@ UNLOCK TABLES;
 -- Table structure for table `usuario`
 --
 
-DROP TABLE IF EXISTS `usuario`;
+
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `usuario` (
@@ -93,7 +105,7 @@ CREATE TABLE `usuario` (
   `tip_usu` int NOT NULL DEFAULT '1',
   PRIMARY KEY (`id_usr`),
   UNIQUE KEY `mail` (`mail`)
-) ENGINE=InnoDB AUTO_INCREMENT=18 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=18 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 /*Tabla apra valoracion*/
@@ -132,6 +144,40 @@ ALTER TABLE `blog`
 
 -- Legacy posts in this snapshot are attributed to the original account (id 1).
 UPDATE `blog` SET `usr_id` = 1 WHERE `usr_id` IS NULL;
+
+-- Mensajería privada 1:1.
+CREATE TABLE IF NOT EXISTS conversaciones (
+  id_conversacion INT NOT NULL AUTO_INCREMENT,
+  usuario_a_id INT NOT NULL,
+  usuario_b_id INT NOT NULL,
+  creada_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id_conversacion),
+  UNIQUE KEY uq_conversacion_pareja (usuario_a_id, usuario_b_id),
+  KEY ix_conversacion_usuario_a (usuario_a_id),
+  KEY ix_conversacion_usuario_b (usuario_b_id),
+  CONSTRAINT ck_conversacion_orden CHECK (usuario_a_id < usuario_b_id),
+  CONSTRAINT fk_conversacion_usuario_a FOREIGN KEY (usuario_a_id)
+    REFERENCES usuario (id_usr) ON DELETE CASCADE,
+  CONSTRAINT fk_conversacion_usuario_b FOREIGN KEY (usuario_b_id)
+    REFERENCES usuario (id_usr) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS mensajes (
+  id_mensaje INT NOT NULL AUTO_INCREMENT,
+  id_conversacion INT NOT NULL,
+  emisor_id INT NOT NULL,
+  contenido VARCHAR(2000) NOT NULL,
+  fecha_envio DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  leido_en DATETIME NULL DEFAULT NULL,
+  PRIMARY KEY (id_mensaje),
+  KEY ix_mensaje_conversacion (id_conversacion, id_mensaje),
+  KEY ix_mensaje_no_leidos (id_conversacion, emisor_id, leido_en),
+  KEY ix_mensaje_emisor (emisor_id),
+  CONSTRAINT fk_mensaje_conversacion FOREIGN KEY (id_conversacion)
+    REFERENCES conversaciones (id_conversacion) ON DELETE CASCADE,
+  CONSTRAINT fk_mensaje_emisor FOREIGN KEY (emisor_id)
+    REFERENCES usuario (id_usr) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
 /*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
