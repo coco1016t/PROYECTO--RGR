@@ -80,3 +80,38 @@ class ValoracionResumen(BaseModel):
     promedio: float
     total: int
     mi_puntuacion: int | None = None
+
+
+class ContactoMensajeriaRespuesta(BaseModel):
+    id_usr: int
+    nom_usr: str
+
+
+class ConversacionRespuesta(BaseModel):
+    id_conversacion: int
+    contacto: ContactoMensajeriaRespuesta
+    ultimo_mensaje: str | None = None
+    fecha_ultimo_mensaje: datetime | None = None
+    no_leidos: int
+
+
+class MensajeCrear(BaseModel):
+    contenido: str = Field(min_length=1, max_length=2000)
+
+
+class MensajeRespuesta(BaseModel):
+    id_mensaje: int
+    id_conversacion: int
+    emisor_id: int
+    contenido: str
+    fecha_envio: datetime
+
+
+class MensajesPaginaRespuesta(BaseModel):
+    mensajes: list[MensajeRespuesta]
+    hay_mas_anteriores: bool = False
+    hay_mas_nuevos: bool = False
+
+
+class MensajesLeidosRespuesta(BaseModel):
+    actualizados: int
