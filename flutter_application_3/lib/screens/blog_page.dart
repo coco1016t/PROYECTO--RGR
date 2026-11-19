@@ -36,7 +36,8 @@ class _BlogPageState extends State<BlogPage> {
         usuarioActual = Map<String, dynamic>.from(argumento);
         nombreUsuario = usuarioActual['nom_usr']?.toString() ?? 'Usuario';
       } else if (SesionService.instance.activa) {
-        usuarioActual = Map<String, dynamic>.from(SesionService.instance.usuario);
+        usuarioActual =
+            Map<String, dynamic>.from(SesionService.instance.usuario);
         nombreUsuario = usuarioActual['nom_usr']?.toString() ?? 'Usuario';
       }
       argumentoLeido = true;
@@ -189,6 +190,11 @@ class _BlogPageState extends State<BlogPage> {
             ],
           ),
           actions: [
+            IconButton(
+              tooltip: 'Mensajes privados',
+              icon: const Icon(Icons.forum_outlined),
+              onPressed: () => Navigator.pushNamed(context, '/mensajes'),
+            ),
             IconButton(
               tooltip: 'Actualizar',
               icon: const Icon(Icons.refresh),
