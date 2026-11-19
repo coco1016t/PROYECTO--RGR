@@ -42,6 +42,7 @@ class AdminDrawer extends StatelessWidget {
             ),
             _opcion(context, Icons.people_alt_outlined, 'Gestión de usuarios',
                 '/users'),
+            _opcion(context, Icons.forum_outlined, 'Mensajes', '/mensajes'),
             _opcion(context, Icons.person_add_alt_1, 'Registrar usuario',
                 '/register'),
             _opcion(context, Icons.post_add, 'Agregar blog', '/add-blog'),
@@ -56,7 +57,9 @@ class AdminDrawer extends StatelessWidget {
               onTap: () {
                 SesionService.instance.cerrar();
                 Navigator.pushNamedAndRemoveUntil(
-                  context, '/login', (route) => false,
+                  context,
+                  '/login',
+                  (route) => false,
                 );
               },
             ),
@@ -75,8 +78,8 @@ class AdminDrawer extends StatelessWidget {
   ) {
     final seleccionado = ruta == rutaActual;
     return ListTile(
-      leading: Icon(icono,
-          color: seleccionado ? const Color(0xFF08245C) : null),
+      leading:
+          Icon(icono, color: seleccionado ? const Color(0xFF08245C) : null),
       title: Text(titulo),
       selected: seleccionado,
       onTap: () => _navegar(context, ruta),
