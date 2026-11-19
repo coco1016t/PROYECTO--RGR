@@ -11,7 +11,6 @@ import 'services/sesion_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // Recupera la sesión guardada (si el token aún no expira).
   await SesionService.instance.cargar();
   runApp(const LoginApp());
 }
@@ -34,7 +33,6 @@ class LoginApp extends StatelessWidget {
       '/mapa': (context) => const MapaPage(),
     };
 
-    // Con sesión vigente se salta el login: admin -> /users, usuario -> /blog.
     final String rutaInicial = !sesion.activa
         ? '/login'
         : (sesion.tipoUsuario == 1 ? '/users' : '/blog');
