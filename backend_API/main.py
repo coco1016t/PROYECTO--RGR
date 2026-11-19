@@ -147,7 +147,42 @@ def iniciar_sesion(
         "usuario": usuario,
     }
 
+@app.post("/password-reset/update")
+def actualizar_password(
+    datos: LoginRequest,
+    db: Session = Depends(obtener_sesion),
+):
+    correo = datos.mail.strip().lower()
+    nueva_password = datos.password
 
+    if len(nueva_password) < 8:
+        raise HTTPException(
+            status_code=422,
+            detail="La contraseña debe tener al menos 8 caracteres",
+        )
+
+    usuario = db.scalar(
+        select(Usuario).where(Usuario.mail == correo)
+    )
+
+    if usuario is None:
+        raise HTTPException(
+            status_code=404,
+            detail="No existe una cuenta registrada con ese correo",
+        )
+
+    usuario.pass_hash = password_hash.hash(nueva_password)
+
+    try:
+        db.commit()
+    except SQLAlchemyError:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail="No se pudo actualizar la contraseña",
+        )
+
+    return {"mensaje": "Contraseña actualizada correctamente"}
 # ---------------------------------------------------------------
 # USUARIOS
 # ---------------------------------------------------------------
