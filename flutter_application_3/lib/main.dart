@@ -4,6 +4,7 @@ import 'screens/blog_page.dart';
 import 'screens/forgot_password_page.dart';
 import 'screens/login_user_page.dart';
 import 'screens/mapa_page.dart';
+import 'screens/mensajes_page.dart';
 import 'screens/profile_page.dart';
 import 'screens/register_user_page.dart';
 import 'screens/users_page.dart';
@@ -31,6 +32,7 @@ class LoginApp extends StatelessWidget {
       '/add-blog': (context) => const AddBlogPage(),
       '/profile': (context) => const ProfilePage(),
       '/mapa': (context) => const MapaPage(),
+      '/mensajes': (context) => const MensajesPage(),
     };
 
     final String rutaInicial = !sesion.activa
