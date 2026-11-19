@@ -1,0 +1,186 @@
+# Plan final ajustado: Mensajería interna
+
+> Estado: la luz verde fue dada y la implementación se completó. Esta bitácora conserva el diseño y las decisiones. Se aplicó la migración aditiva a XAMPP; las pruebas automatizadas de extremo a extremo siguen pendientes.
+
+## 1. Alcance y fuentes
+
+### Solicitud del usuario
+
+Chat privado o mensajes directos entre usuarios registrados.
+
+### Documentos y críticas
+
+- La Evaluación Unidad 3 presenta mensajería como módulo opcional y recomienda documentar modelo, seguridad y acceso desde la app.
+- La Evaluación Unidad 2 trata prototipos, controles, navegación y arquitectura; no especifica reglas técnicas de chat.
+- Las dos críticas revisadas no piden rediseñar el núcleo. Los cambios concretan el contrato, el orden, la concurrencia, la privacidad, la migración y los casos de prueba.
+- El requisito funcional sigue siendo el pedido directo del usuario; los PDF y las críticas afinan cómo diseñarlo y documentarlo.
+
+## 2. Contexto del repositorio y entorno
+
+- Backend: FastAPI, SQLAlchemy y autenticación JWT con `usuario_actual`.
+- Cliente: Flutter y `SesionService`, que guarda la sesión y adjunta Bearer en servicios HTTP.
+- La API llama a `Base.metadata.create_all` al iniciar. Este mecanismo crea tablas faltantes, pero no corrige ni valida una migración SQL incompleta; ambos esquemas se compararán explícitamente.
+- Entorno revisado: XAMPP/MariaDB 10.4.32. La base usa `utf8mb4_unicode_ci`; el dump existente contiene `utf8mb4_0900_ai_ci`, incompatible con MariaDB 10.4.
+- El proyecto tiene nombres duplicados en usuarios y una FK de comentarios que puede impedir borrar una cuenta. La UI y el manejo de borrado deben contemplarlo.
+- El administrador inicia en `/users`; su menú actual no le da acceso al blog. Mensajería se ofrecerá directamente en el drawer del administrador, sin asumir una ruta de blog.
+
+## 3. Decisiones de contrato cerradas
+
+1. **Modelo:** dos tablas para chats 1:1 y mensajes; parejas de IDs canónicas, únicas y con `CHECK`.
+2. **Orden de bandeja:** la fuente de verdad será el mayor `id_mensaje` de cada conversación. Se elimina `actualizada_en` y no se ordenará la bandeja por timestamps. Esto evita una fecha que necesite actualizarse al insertar cada mensaje y mantiene orden monotónico.
+3. **Tipos de fecha:** usar `DATETIME` sin fracciones tanto en DDL como en SQLAlchemy (`DateTime` + `server_default=func.current_timestamp()`). No usar `DATETIME(6)`, `CURRENT_TIMESTAMP(6)` ni `ON UPDATE`; así `create_all` y la migración producen el mismo esquema. El orden funcional depende de IDs, no de la precisión de las fechas.
+4. **Polling incremental:** el historial admite `despues_de_id` para descargar solo mensajes nuevos. Flutter fusiona por ID y no reemplaza los mensajes antiguos.
+5. **Búsqueda de contactos:** se descarga la lista completa de contactos del proyecto y se filtra localmente por nombre; no hay `q` ni paginación de contactos en esta primera versión. La búsqueda siempre parte de la lista completa, así que puede detectar nombres duplicados.
+6. **Contactos duplicados:** la API devuelve nombre e ID separados. En Flutter, si el nombre colisiona, mostrar `Nombre (#ID)`; no revelar correo, dirección ni rol.
+7. **Vista previa:** máximo 80 caracteres; convertir saltos de línea en espacios y normalizar espacios antes de truncar. No se añade `ultimo_emisor_id` ni prefijo “Tú:”; la bandeja muestra el texto y la fecha del último mensaje.
+8. **Recibos de lectura:** `leido_en` es interno para contar no leídos. No se expone al cliente ni se muestra “Leído”. Abrir el chat marca recibidos como leídos; el criterio significa “cargado en el chat abierto”, no garantiza lectura visual si la persona está recorriendo mensajes antiguos.
+9. **Hilos vacíos:** se crea un hilo al abrir contacto, pero se excluye de ambas bandejas hasta que se envíe el primer mensaje. Si quien lo abrió vuelve sin enviar, tampoco lo verá en su propia bandeja. El máximo de un hilo por pareja evita duplicados; no se añade rate limit en esta versión.
+10. **Estados:** abrir/crear responde 201 si se creó y 200 si ya existía o ganó otra petición concurrente. Enviar responde 201. Automensaje 400, contacto inexistente 404, no participante 404, mensaje inválido 422, sin token 401. Errores FastAPI usan `{"detail": "..."}` y Flutter comparte el extractor de errores de `UserService`.
+11. **Privacidad:** administradores no pueden leer conversaciones ajenas; todas las operaciones verifican membresía. No participante y conversación inexistente devuelven el mismo 404.
+12. **Base existente:** generar respaldo local protegido antes del DDL y aplicar solo la migración aditiva; no importar `bd.sql` sobre una base que ya contiene datos.
+
+## 4. Esquema propuesto (idéntico para migración y modelos)
+
+Agregar exactamente estas tablas, sin recrear usuarios, publicaciones, comentarios ni valoraciones:
+
+```sql
+CREATE TABLE IF NOT EXISTS conversaciones (
+  id_conversacion INT NOT NULL AUTO_INCREMENT,
+  usuario_a_id INT NOT NULL,
+  usuario_b_id INT NOT NULL,
+  creada_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id_conversacion),
+  UNIQUE KEY uq_conversacion_pareja (usuario_a_id, usuario_b_id),
+  KEY ix_conversacion_usuario_a (usuario_a_id),
+  KEY ix_conversacion_usuario_b (usuario_b_id),
+  CONSTRAINT ck_conversacion_orden CHECK (usuario_a_id < usuario_b_id),
+  CONSTRAINT fk_conversacion_usuario_a FOREIGN KEY (usuario_a_id)
+    REFERENCES usuario (id_usr) ON DELETE CASCADE,
+  CONSTRAINT fk_conversacion_usuario_b FOREIGN KEY (usuario_b_id)
+    REFERENCES usuario (id_usr) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS mensajes (
+  id_mensaje INT NOT NULL AUTO_INCREMENT,
+  id_conversacion INT NOT NULL,
+  emisor_id INT NOT NULL,
+  contenido VARCHAR(2000) NOT NULL,
+  fecha_envio DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  leido_en DATETIME NULL DEFAULT NULL,
+  PRIMARY KEY (id_mensaje),
+  KEY ix_mensaje_conversacion (id_conversacion, id_mensaje),
+  KEY ix_mensaje_no_leidos (id_conversacion, emisor_id, leido_en),
+  KEY ix_mensaje_emisor (emisor_id),
+  CONSTRAINT fk_mensaje_conversacion FOREIGN KEY (id_conversacion)
+    REFERENCES conversaciones (id_conversacion) ON DELETE CASCADE,
+  CONSTRAINT fk_mensaje_emisor FOREIGN KEY (emisor_id)
+    REFERENCES usuario (id_usr) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+```
+
+SQLAlchemy debe declarar `DateTime`, `server_default=func.current_timestamp()` para `creada_en`/`fecha_envio`, y `DateTime(nullable=True, server_default=text("NULL"))` para `leido_en`; los mismos nombres de índices/constraints/FKs y el `CheckConstraint`; y opciones de tabla `InnoDB`, `utf8mb4`, `utf8mb4_unicode_ci`. Las PK se declaran sin `index=True` porque ya tienen índice primario; los índices secundarios son únicamente los listados en el DDL. No declarar `actualizada_en` ni `onupdate`. Al insertar mensaje, `id_mensaje` es también el orden estable del hilo y el indicador de actividad de la bandeja.
+
+El `CHECK (usuario_a_id < usuario_b_id)` evita auto-chat y pareja invertida incluso fuera del endpoint. La API siempre ordenará IDs; la clave única evita duplicados concurrentes. Se requiere MySQL 8.0.16+ o MariaDB 10.4+ para aplicar el `CHECK` como restricción efectiva.
+
+## 5. Migración, respaldo y esquema completo
+
+- Crear `backend_API/migracion_mensajeria.sql` en el orden anterior, con `CREATE TABLE IF NOT EXISTS`.
+- `IF NOT EXISTS` no repara una tabla parcial o divergente. Antes de migrar, inspeccionar `information_schema`; si una tabla existe con columnas, índices o FKs distintos, detener y proponer reparación explícita.
+- La migración se aplicó una vez a XAMPP y se inspeccionaron con `SHOW CREATE TABLE` las columnas, claves, índices, `CHECK` y FKs. SQLAlchemy generó los mismos tipos, defaults, constraints, opciones de tabla e índices. La doble ejecución en temporal y los casos de extremo a extremo quedan como pruebas pendientes; `create_all` no sustituye la prueba del script SQL.
+- Antes de aplicar a XAMPP se guardó un respaldo en `%TEMP%\bd_aplicacion_movil_pre_mensajeria_20261118.sql`. Se aplicó solo la migración aditiva; `bd.sql` sigue siendo destructivo para una base existente.
+- Actualizar el dump para nuevas instalaciones: reemplazar **todas** las apariciones de `utf8mb4_0900_ai_ci` por `utf8mb4_unicode_ci`; añadir `DROP TABLE IF EXISTS mensajes`, `conversaciones` y demás drops en orden de dependencia; agregar también `DROP TABLE IF EXISTS valoraciones` antes de recrearla, pues actualmente usa `CREATE TABLE IF NOT EXISTS` y podría conservar datos viejos al reimportar. Crear primero tablas padre y después dependientes. Conservar una advertencia clara de que el dump completo no se importa sobre datos que se quieran conservar.
+- Documentar compatibilidad MySQL 8.0.16+ / MariaDB 10.4+ en README.
+
+## 6. Contrato de API
+
+Todas las rutas exigen JWT. El ID del emisor se toma del token, no del body.
+
+| Método/ruta | Respuesta | Errores/semántica |
+|---|---|---|
+| `GET /mensajes/contactos` | `[{"id_usr":8,"nom_usr":"Jose perez"}]` | 200; excluye al usuario actual; solo ID/nombre; sin token 401. |
+| `GET /mensajes/conversaciones` | Lista de conversación con contacto, último texto, fecha y no leídos | 200; excluye hilos sin mensajes; ordena por ID del último mensaje descendente; 401. |
+| `POST /mensajes/conversaciones/{usuario_id}` | Conversación con último mensaje nulo si aún está vacía | 201 nueva, 200 existente o carrera resuelta; 400 usuario actual; 404 contacto ausente; 401. |
+| `GET /mensajes/conversaciones/{id}/mensajes?limite=50&antes_de_id=123` | `{"mensajes":[...],"hay_mas_anteriores":true,"hay_mas_nuevos":false}` | 200; 404 no participante/no existe; 422 límite o cursor inválido. |
+| `GET /mensajes/conversaciones/{id}/mensajes?limite=50&despues_de_id=123` | `{"mensajes":[...],"hay_mas_anteriores":false,"hay_mas_nuevos":true}` | Devuelve solo IDs mayores al cursor, ascendentes; 404 no participante; 422 parámetros inválidos. |
+| `POST /mensajes/conversaciones/{id}/mensajes` | DTO de mensaje nuevo | 201; 401; 404 no participante; 422 vacío/solo espacios/>2,000 chars. |
+| `POST /mensajes/conversaciones/{id}/leidos` | `{"actualizados":2}` | 200 idempotente; solo recibidos no leídos; 401; 404 no participante. |
+
+### DTOs fijados
+
+- **Contacto:** `id_usr`, `nom_usr` solamente.
+- **Conversación:** `id_conversacion`, `contacto: {id_usr, nom_usr}`, `ultimo_mensaje` (null si vacío; máximo 80 caracteres), `fecha_ultimo_mensaje`, `no_leidos`. No incluye `ultimo_emisor_id`; la interfaz no antepone “Tú:”.
+- **Mensaje:** `id_mensaje`, `id_conversacion`, `emisor_id`, `contenido`, `fecha_envio`. Sin correo, dirección, rol ni `leido_en`.
+- **Error:** cuerpo FastAPI estándar `{"detail":"mensaje"}`. El servicio Flutter reutiliza el patrón de `UserService._mensajeError`.
+
+### Orden, cursores y lecturas
+
+- Primer historial: consulta por IDs descendentes con `LIMIT limite + 1`, conservar los más recientes y entregarlos ascendentes; el extra determina `hay_mas_anteriores`.
+- Historial previo: `id_mensaje < antes_de_id`, mismo orden inverso/límite, luego invertir el lote. Cursor y `limite` deben ser válidos; `antes_de_id` y `despues_de_id` son mutuamente excluyentes y el cursor debe pertenecer a esa conversación. Para un hilo vacío, `despues_de_id=0` es el cursor inicial reservado y no requiere mensaje previo.
+- Polling: `id_mensaje > despues_de_id`, ascendente, límite. Si hay más nuevos, el cliente continúa desde el último ID recibido hasta agotar el lote.
+- Flutter conserva la lista cargada y fusiona por `id_mensaje`, sin duplicados ni reemplazar mensajes antiguos. Si la persona está leyendo mensajes viejos, no mover el scroll; auto-scroll solo si estaba cerca del final y, de lo contrario, mostrar indicador de mensajes nuevos.
+- Conteo no leídos: solo `emisor_id <> usuario_actual AND leido_en IS NULL`. Al marcar, actualizar con `CURRENT_TIMESTAMP` solo esos mensajes; nunca mensajes propios. Enviar mensaje actualiza la lectura de bandeja por su nuevo ID, no por fecha.
+- La bandeja se obtiene sin N+1: una consulta de conversaciones/contactos, una consulta agrupada del último ID y sus datos, y una consulta agrupada del conteo no leído. Ordenar por `ultimo_id_mensaje DESC`; `fecha_ultimo_mensaje` sale del mismo último mensaje. La vista previa reemplaza saltos por espacios, normaliza espacios y trunca a 80 (77 + `...`).
+- Al abrir hilo se marcan como leídos todos los mensajes entrantes pendientes de esa conversación, incluso si la pantalla todavía no cargó el historial antiguo; con polling, solo se marca de nuevo si llegaron mensajes entrantes. No es un recibo visual al remitente. La semántica es “cargado en conversación abierta”, no recibo visual al remitente.
+
+### Concurrencia al crear hilo
+
+Canonicalizar `(min(usuario_actual, usuario_destino), max(...))`, buscar, insertar y confirmar. Si `commit` falla por la restricción única, rollback, volver a buscar y devolver 200 con el existente. Si no se encuentra, responder 409 controlado. Usuario destino inexistente: 404; autorrelación detectada antes de SQL: 400, nunca 500.
+
+## 7. Flutter, búsqueda y navegación
+
+- Añadir modelos, servicio HTTP autenticado y bandeja/selector/chat siguiendo los DTOs anteriores.
+- El selector recibe todos los contactos sin el usuario actual y filtra localmente por nombre. Como la lista fuente es completa, detecta todas las colisiones: etiqueta `Jose perez (#8)` solo para nombres duplicados. Sin búsqueda en servidor ni paginación de contactos en esta versión; si el número de usuarios crece, ampliar contrato con `q` y paginación.
+- Bandeja: orden por actividad reciente, vista previa normalizada, hora desde `fecha_ultimo_mensaje`, contador no leído. No muestra “Tú:” ni hilos vacíos. Al volver del chat, recargar bandeja.
+- Registrar ruta `/mensajes`; agregar opción al `AdminDrawer` y botón de chat en el AppBar del blog para todos. En la página de mensajería mostrar el drawer solo si `tip_usu == 1`; los usuarios normales no reciben opciones administrativas. Administradores no tienen privilegio de leer chats ajenos.
+- Verificar `PostModel` para que exponga y parse `usr_id`, ya presente en `BlogRespuesta`. En `PostDetailPage`, mostrar “Enviar mensaje” solo cuando `usr_id != null` y no sea el ID actual. Si autor es nulo/eliminado o propio, ocultar acción. Reutilizar abrir/crear conversación.
+- Chat limita composer a 2,000 caracteres, mantiene historial ante error de red y maneja respuesta `{detail: ...}` mediante el extractor compartido.
+
+### Ciclo de vida del polling
+
+- Cada 4 s solo en chat visible y con la app en primer plano; no polling permanente en bandeja.
+- `Timer.cancel()` en `dispose`; detener al ir a segundo plano; al volver, refrescar inmediatamente y reiniciar.
+- Bandera para impedir llamadas solapadas y `mounted` antes de `setState`.
+- Después de enviar, refrescar de inmediato. Un error de refresco no borra historial; mostrar aviso/reintento.
+- Marcar leído al abrir y al detectar mensajes entrantes nuevos, no en ciclos sin novedades.
+
+## 8. Borrado de cuenta y retención
+
+La cascada de mensajería borra hilos e historial permanentemente si el borrado de usuario se completa. No se cambia la FK existente de comentarios. Modificar `DELETE /usuarios/{id}` para capturar `IntegrityError`, rollback y responder 409 claro si comentarios/datos relacionados impiden eliminar; la transacción fallida debe dejar también chats intactos. Documentar esta política irreversible.
+
+## 9. Límites y seguridad para README
+
+- Sin rate limit: un usuario autenticado puede enviar repetidamente y saturar un chat; documentar como limitación.
+- Sin bloqueo ni reporte de usuarios; sin edición/borrado individual de mensajes.
+- No hay cifrado de extremo a extremo; los textos se almacenan sin cifrado de aplicación en la base de datos.
+- HTTP se usa solo en desarrollo local; el despliegue debe servir la API bajo HTTPS.
+- Un administrador tampoco lee chats ajenos; solo los dos participantes pueden consultar, enviar o marcar leídos.
+- Eliminar una cuenta borra permanentemente sus chats si la eliminación pasa las restricciones existentes.
+- Documentar instalación de migración, rutas/DTOs, polling incremental, paginación y requisitos MySQL 8.0.16+ o MariaDB 10.4+.
+
+## 10. Pruebas pendientes
+
+1. Pareja A/B con apertura repetida y concurrente: mismo ID, una fila; 200/201 correctos; constraint bloquea pareja invertida y autorrelación.
+2. Contactos excluyen al usuario actual y no incluyen correo/dirección/rol; nombres duplicados se muestran con ID aun cuando se filtra localmente.
+3. Borrador vacío no aparece en bandeja de A ni B; tras primer mensaje aparece en ambas; fecha y orden de actividad cambian al llegar mensaje nuevo.
+4. Vista previa de 80 y 81 caracteres, saltos de línea, emoji y acentos; siempre máximo 80 y texto normalizado.
+5. Polling: A mantiene chat abierto, B envía, A ve mensaje en máximo un ciclo (4 s), no duplica y conserva historial antiguo/posición de lectura. Cursor `despues_de_id` con más de 50 nuevos; sin saltos/duplicados. Paginación `antes_de_id` estable con mensajes del mismo segundo.
+6. No leídos solo cuenta entrantes; marcar no toca propios, segunda llamada devuelve 0; no se expone `leido_en` ni estado “Leído”.
+7. No participante y conversación inexistente: mismo 404, también para un administrador que no participe. Sin token 401; usuario inexistente 404; autorrelación 400; contenido inválido 422; enviar 201.
+8. Cuenta con comentarios: DELETE responde 409 y no borra chat. Cuenta de prueba eliminable: cascada borra conversación/mensajes.
+9. Migración ejecutada dos veces en base temporal; inspección de columnas/índices/CHECK/FKs. Comparación exacta contra ORM sin `DATETIME(6)` ni columnas extra.
+10. Importar `bd.sql` en MariaDB 10.4 limpio tras sustituir todas las colaciones; probar orden de drop, incluidos `valoraciones`, y nunca sobre BD existente con datos.
+11. Flutter: polling detenido en segundo plano/dispose, reanudación, no solapamiento, error sin perder historial, 401 y pantalla pequeña/teclado.
+12. El análisis estático `flutter analyze` se ejecutó y no encontró problemas. Las pruebas HTTP de backend y UI siguen pendientes; no se ejecutó `flutter test` ni una suite de backend.
+
+## 11. Implementación realizada
+
+- Backend: `backend_API/models.py`, `schemas.py` y `main.py` contienen tablas/DTOs, rutas, consultas agrupadas, control de participantes, cursor incremental, lecturas idempotentes, manejo de concurrencia y respuesta 409 al borrar cuentas con datos relacionados.
+- Base de datos: `backend_API/migracion_mensajeria.sql` y `backend_API/bd.sql` incluyen las tablas y restricciones; el dump ahora usa colación compatible y orden de drops seguro. La migración aditiva ya se aplicó a la instancia XAMPP existente.
+- Flutter: se añadieron modelos, servicio HTTP, bandeja, selector y chat con polling incremental y gestión del ciclo de vida. La navegación está disponible desde el blog, el drawer administrativo y el detalle de publicaciones de otros usuarios.
+- Documentación: README, modelo ER, diagrama de secuencia, diccionario de datos y límites de seguridad.
+- Respaldo local previo: `%TEMP%\bd_aplicacion_movil_pre_mensajeria_20261118.sql`.
+- Comprobaciones realizadas: `flutter analyze` sin incidencias; sintaxis Python; DDL generado por SQLAlchemy cotejado con la migración; esquema aplicado inspeccionado en MariaDB 10.4.32. No se ejecutaron suites de pruebas automatizadas ni se importó `bd.sql` sobre la base real.
+
+## 12. Pruebas y trabajo restante
+
+Ejecutar, cuando se solicite una verificación funcional, los casos de la sección 10 en una base temporal o con usuarios de prueba; importar `bd.sql` en una base limpia MariaDB 10.4 para comprobar un alta nueva. Las pruebas pendientes no deben usar ni borrar datos de cuentas reales.
