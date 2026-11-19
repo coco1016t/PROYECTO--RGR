@@ -2,15 +2,31 @@ from pathlib import Path
 import hmac
 from uuid import uuid4
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Form
+from fastapi import (
+    FastAPI,
+    Depends,
+    HTTPException,
+    UploadFile,
+    File,
+    Form,
+    Query,
+    Response,
+)
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
-from sqlalchemy import func, inspect, select
+from sqlalchemy import and_, case, func, inspect, or_, select, update
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from pwdlib import PasswordHash
 from database import Base, engine, obtener_sesion
-from models import Usuario, Blog, Comentario, Valoracion
+from models import (
+    Usuario,
+    Blog,
+    Comentario,
+    Valoracion,
+    Conversacion,
+    Mensaje,
+)
 from schemas import (
     UsuarioCrear,
     UsuarioActualizar,
@@ -22,6 +38,12 @@ from schemas import (
     TokenRespuesta,
     ValoracionCrear,
     ValoracionResumen,
+    ContactoMensajeriaRespuesta,
+    ConversacionRespuesta,
+    MensajeCrear,
+    MensajeRespuesta,
+    MensajesPaginaRespuesta,
+    MensajesLeidosRespuesta,
 )
 from seguridad import crear_token, usuario_actual, usuario_opcional, solo_admin
 
@@ -231,9 +253,439 @@ def eliminar_usuario(
         )
 
     db.delete(usuario)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "No se puede eliminar la cuenta porque tiene información "
+                "relacionada que debe resolverse primero."
+            ),
+        ) from exc
 
     return {"mensaje": "Usuario eliminado correctamente"}
+
+
+# ---------------------------------------------------------------
+# MENSAJERÍA PRIVADA
+# ---------------------------------------------------------------
+
+def _previsualizar_mensaje(contenido: str) -> str:
+    texto = " ".join(contenido.split())
+    if len(texto) <= 80:
+        return texto
+    return f"{texto[:77].rstrip()}..."
+
+
+def _buscar_conversacion(
+    db: Session,
+    usuario_a_id: int,
+    usuario_b_id: int,
+) -> Conversacion | None:
+    return db.scalar(
+        select(Conversacion).where(
+            Conversacion.usuario_a_id == usuario_a_id,
+            Conversacion.usuario_b_id == usuario_b_id,
+        )
+    )
+
+
+def _conversacion_del_usuario(
+    db: Session,
+    conversacion_id: int,
+    usuario_id: int,
+) -> Conversacion:
+    conversacion = db.scalar(
+        select(Conversacion).where(
+            Conversacion.id_conversacion == conversacion_id,
+            or_(
+                Conversacion.usuario_a_id == usuario_id,
+                Conversacion.usuario_b_id == usuario_id,
+            ),
+        )
+    )
+    if conversacion is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Conversación no encontrada",
+        )
+    return conversacion
+
+
+def _respuesta_conversacion(
+    db: Session,
+    conversacion: Conversacion,
+    usuario_id: int,
+) -> dict:
+    contacto_id = (
+        conversacion.usuario_b_id
+        if conversacion.usuario_a_id == usuario_id
+        else conversacion.usuario_a_id
+    )
+    contacto = db.get(Usuario, contacto_id)
+    if contacto is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Contacto no encontrado",
+        )
+
+    ultimo = db.scalar(
+        select(Mensaje)
+        .where(Mensaje.id_conversacion == conversacion.id_conversacion)
+        .order_by(Mensaje.id_mensaje.desc())
+        .limit(1)
+    )
+    no_leidos = db.scalar(
+        select(func.count(Mensaje.id_mensaje)).where(
+            Mensaje.id_conversacion == conversacion.id_conversacion,
+            Mensaje.emisor_id != usuario_id,
+            Mensaje.leido_en.is_(None),
+        )
+    )
+
+    return {
+        "id_conversacion": conversacion.id_conversacion,
+        "contacto": {
+            "id_usr": contacto.id_usr,
+            "nom_usr": contacto.nom_usr,
+        },
+        "ultimo_mensaje": (
+            _previsualizar_mensaje(ultimo.contenido) if ultimo else None
+        ),
+        "fecha_ultimo_mensaje": ultimo.fecha_envio if ultimo else None,
+        "no_leidos": int(no_leidos or 0),
+    }
+
+
+def _respuesta_mensaje(mensaje: Mensaje) -> dict:
+    return {
+        "id_mensaje": mensaje.id_mensaje,
+        "id_conversacion": mensaje.id_conversacion,
+        "emisor_id": mensaje.emisor_id,
+        "contenido": mensaje.contenido,
+        "fecha_envio": mensaje.fecha_envio,
+    }
+
+
+@app.get(
+    "/mensajes/contactos",
+    response_model=list[ContactoMensajeriaRespuesta],
+)
+def listar_contactos_mensajeria(
+    db: Session = Depends(obtener_sesion),
+    quien: Usuario = Depends(usuario_actual),
+):
+    contactos = db.execute(
+        select(Usuario.id_usr, Usuario.nom_usr)
+        .where(Usuario.id_usr != quien.id_usr)
+        .order_by(Usuario.nom_usr, Usuario.id_usr)
+    ).all()
+    return [
+        {"id_usr": contacto.id_usr, "nom_usr": contacto.nom_usr}
+        for contacto in contactos
+    ]
+
+
+@app.get(
+    "/mensajes/conversaciones",
+    response_model=list[ConversacionRespuesta],
+)
+def listar_conversaciones_mensajeria(
+    db: Session = Depends(obtener_sesion),
+    quien: Usuario = Depends(usuario_actual),
+):
+    contacto_id = case(
+        (
+            Conversacion.usuario_a_id == quien.id_usr,
+            Conversacion.usuario_b_id,
+        ),
+        else_=Conversacion.usuario_a_id,
+    )
+    filas_conversaciones = db.execute(
+        select(
+            Conversacion.id_conversacion.label("id_conversacion"),
+            contacto_id.label("contacto_id"),
+            Usuario.nom_usr.label("contacto_nombre"),
+        )
+        .join(Usuario, Usuario.id_usr == contacto_id)
+        .where(
+            or_(
+                Conversacion.usuario_a_id == quien.id_usr,
+                Conversacion.usuario_b_id == quien.id_usr,
+            )
+        )
+    ).all()
+    if not filas_conversaciones:
+        return []
+
+    ids_conversaciones = [
+        fila.id_conversacion for fila in filas_conversaciones
+    ]
+    ultimos_ids = (
+        select(
+            Mensaje.id_conversacion.label("id_conversacion"),
+            func.max(Mensaje.id_mensaje).label("ultimo_id"),
+        )
+        .where(Mensaje.id_conversacion.in_(ids_conversaciones))
+        .group_by(Mensaje.id_conversacion)
+        .subquery()
+    )
+    filas_ultimos = db.execute(
+        select(
+            Mensaje.id_conversacion,
+            Mensaje.id_mensaje,
+            Mensaje.contenido,
+            Mensaje.fecha_envio,
+        ).join(
+            ultimos_ids,
+            and_(
+                Mensaje.id_conversacion == ultimos_ids.c.id_conversacion,
+                Mensaje.id_mensaje == ultimos_ids.c.ultimo_id,
+            ),
+        )
+    ).all()
+    ultimo_por_conversacion = {
+        fila.id_conversacion: fila for fila in filas_ultimos
+    }
+    filas_no_leidos = db.execute(
+        select(
+            Mensaje.id_conversacion,
+            func.count(Mensaje.id_mensaje).label("total"),
+        )
+        .where(
+            Mensaje.id_conversacion.in_(ids_conversaciones),
+            Mensaje.emisor_id != quien.id_usr,
+            Mensaje.leido_en.is_(None),
+        )
+        .group_by(Mensaje.id_conversacion)
+    ).all()
+    no_leidos_por_conversacion = {
+        fila.id_conversacion: int(fila.total) for fila in filas_no_leidos
+    }
+
+    salida = []
+    for fila in filas_conversaciones:
+        ultimo = ultimo_por_conversacion.get(fila.id_conversacion)
+        if ultimo is None:
+            # Los hilos vacíos no aparecen en la bandeja de ningún participante.
+            continue
+        salida.append(
+            {
+                "id_conversacion": fila.id_conversacion,
+                "contacto": {
+                    "id_usr": fila.contacto_id,
+                    "nom_usr": fila.contacto_nombre,
+                },
+                "ultimo_mensaje": _previsualizar_mensaje(ultimo.contenido),
+                "fecha_ultimo_mensaje": ultimo.fecha_envio,
+                "no_leidos": no_leidos_por_conversacion.get(
+                    fila.id_conversacion,
+                    0,
+                ),
+                "_ultimo_id": ultimo.id_mensaje,
+            }
+        )
+
+    salida.sort(key=lambda item: item["_ultimo_id"], reverse=True)
+    for item in salida:
+        item.pop("_ultimo_id")
+    return salida
+
+
+@app.post(
+    "/mensajes/conversaciones/{usuario_id}",
+    response_model=ConversacionRespuesta,
+    status_code=201,
+    responses={200: {"model": ConversacionRespuesta}},
+)
+def abrir_conversacion_mensajeria(
+    usuario_id: int,
+    response: Response,
+    db: Session = Depends(obtener_sesion),
+    quien: Usuario = Depends(usuario_actual),
+):
+    if usuario_id == quien.id_usr:
+        raise HTTPException(
+            status_code=400,
+            detail="No puedes abrir una conversación contigo mismo.",
+        )
+
+    if db.get(Usuario, usuario_id) is None:
+        raise HTTPException(status_code=404, detail="Contacto no encontrado")
+
+    usuario_a_id, usuario_b_id = sorted((quien.id_usr, usuario_id))
+    conversacion = _buscar_conversacion(db, usuario_a_id, usuario_b_id)
+    creada = False
+    if conversacion is None:
+        conversacion = Conversacion(
+            usuario_a_id=usuario_a_id,
+            usuario_b_id=usuario_b_id,
+        )
+        db.add(conversacion)
+        try:
+            db.commit()
+            db.refresh(conversacion)
+            creada = True
+        except IntegrityError as exc:
+            db.rollback()
+            conversacion = _buscar_conversacion(
+                db,
+                usuario_a_id,
+                usuario_b_id,
+            )
+            if conversacion is None:
+                if db.get(Usuario, usuario_id) is None:
+                    raise HTTPException(
+                        status_code=404,
+                        detail="Contacto no encontrado",
+                    ) from exc
+                raise HTTPException(
+                    status_code=409,
+                    detail="No se pudo abrir la conversación.",
+                ) from exc
+
+    response.status_code = 201 if creada else 200
+    return _respuesta_conversacion(db, conversacion, quien.id_usr)
+
+
+@app.get(
+    "/mensajes/conversaciones/{conversacion_id}/mensajes",
+    response_model=MensajesPaginaRespuesta,
+)
+def listar_mensajes_conversacion(
+    conversacion_id: int,
+    limite: int = Query(default=50, ge=1, le=100),
+    antes_de_id: int | None = Query(default=None, gt=0),
+    despues_de_id: int | None = Query(default=None, ge=0),
+    db: Session = Depends(obtener_sesion),
+    quien: Usuario = Depends(usuario_actual),
+):
+    if antes_de_id is not None and despues_de_id is not None:
+        raise HTTPException(
+            status_code=422,
+            detail="Usa antes_de_id o despues_de_id, pero no ambos.",
+        )
+
+    conversacion = _conversacion_del_usuario(
+        db,
+        conversacion_id,
+        quien.id_usr,
+    )
+    cursor = antes_de_id if antes_de_id is not None else despues_de_id
+    if cursor not in (None, 0):
+        pertenece = db.scalar(
+            select(Mensaje.id_mensaje).where(
+                Mensaje.id_mensaje == cursor,
+                Mensaje.id_conversacion == conversacion.id_conversacion,
+            )
+        )
+        if pertenece is None:
+            raise HTTPException(
+                status_code=422,
+                detail="El cursor no pertenece a esta conversación.",
+            )
+
+    hay_mas_anteriores = False
+    hay_mas_nuevos = False
+    if despues_de_id is not None:
+        consulta = (
+            select(Mensaje)
+            .where(
+                Mensaje.id_conversacion == conversacion.id_conversacion,
+                Mensaje.id_mensaje > despues_de_id,
+            )
+            .order_by(Mensaje.id_mensaje.asc())
+            .limit(limite + 1)
+        )
+        mensajes = list(db.scalars(consulta).all())
+        hay_mas_nuevos = len(mensajes) > limite
+        mensajes = mensajes[:limite]
+    else:
+        consulta = select(Mensaje).where(
+            Mensaje.id_conversacion == conversacion.id_conversacion
+        )
+        if antes_de_id is not None:
+            consulta = consulta.where(Mensaje.id_mensaje < antes_de_id)
+        consulta = consulta.order_by(Mensaje.id_mensaje.desc()).limit(limite + 1)
+        mensajes_desc = list(db.scalars(consulta).all())
+        hay_mas_anteriores = len(mensajes_desc) > limite
+        mensajes = list(reversed(mensajes_desc[:limite]))
+
+    return {
+        "mensajes": [_respuesta_mensaje(mensaje) for mensaje in mensajes],
+        "hay_mas_anteriores": hay_mas_anteriores,
+        "hay_mas_nuevos": hay_mas_nuevos,
+    }
+
+
+@app.post(
+    "/mensajes/conversaciones/{conversacion_id}/mensajes",
+    response_model=MensajeRespuesta,
+    status_code=201,
+)
+def enviar_mensaje_conversacion(
+    conversacion_id: int,
+    datos: MensajeCrear,
+    db: Session = Depends(obtener_sesion),
+    quien: Usuario = Depends(usuario_actual),
+):
+    conversacion = _conversacion_del_usuario(
+        db,
+        conversacion_id,
+        quien.id_usr,
+    )
+    contenido = datos.contenido.strip()
+    if not contenido:
+        raise HTTPException(
+            status_code=422,
+            detail="El mensaje no puede estar vacío.",
+        )
+
+    mensaje = Mensaje(
+        id_conversacion=conversacion.id_conversacion,
+        emisor_id=quien.id_usr,
+        contenido=contenido,
+    )
+    db.add(mensaje)
+    try:
+        db.commit()
+        db.refresh(mensaje)
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="No se pudo guardar el mensaje.",
+        ) from exc
+    return _respuesta_mensaje(mensaje)
+
+
+@app.post(
+    "/mensajes/conversaciones/{conversacion_id}/leidos",
+    response_model=MensajesLeidosRespuesta,
+)
+def marcar_mensajes_leidos(
+    conversacion_id: int,
+    db: Session = Depends(obtener_sesion),
+    quien: Usuario = Depends(usuario_actual),
+):
+    conversacion = _conversacion_del_usuario(
+        db,
+        conversacion_id,
+        quien.id_usr,
+    )
+    resultado = db.execute(
+        update(Mensaje)
+        .where(
+            Mensaje.id_conversacion == conversacion.id_conversacion,
+            Mensaje.emisor_id != quien.id_usr,
+            Mensaje.leido_en.is_(None),
+        )
+        .values(leido_en=func.current_timestamp())
+    )
+    db.commit()
+    return {"actualizados": int(resultado.rowcount or 0)}
 
 
 # ---------------------------------------------------------------
