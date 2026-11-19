@@ -4,4 +4,6 @@ estamos cocinados
 
 Ponganse hacer algo chavos 
 
-vgvkbbkbk. REYNALDO feo
+vgvkbbkbk. REYNALDO feo7
+
+feo tu
