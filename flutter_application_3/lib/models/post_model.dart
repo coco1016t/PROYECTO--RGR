@@ -6,6 +6,8 @@ class PostModel {
   final String tags;
   final int? usuarioId;
   final String autor;
+  final double promedio;
+  final int totalValoraciones;
 
   const PostModel({
     required this.id,
@@ -15,6 +17,8 @@ class PostModel {
     required this.tags,
     this.usuarioId,
     this.autor = '',
+    this.promedio = 0.0,
+    this.totalValoraciones = 0,
   });
 
   factory PostModel.fromJson(Map<String, dynamic> json) {
@@ -26,6 +30,8 @@ class PostModel {
       tags: json['tags']?.toString() ?? '',
       usuarioId: (json['usr_id'] as num?)?.toInt(),
       autor: json['autor']?.toString() ?? '',
+      promedio: (json['promedio'] as num?)?.toDouble() ?? 0.0,
+      totalValoraciones: (json['total_valoraciones'] as num?)?.toInt() ?? 0,
     );
   }
 }
