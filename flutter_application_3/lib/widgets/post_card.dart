@@ -82,6 +82,20 @@ class PostCard extends StatelessWidget {
                   const SizedBox(height: 12),
                   Row(
                     children: [
+                      const Icon(Icons.star, size: 18, color: Colors.amber),
+                      const SizedBox(width: 4),
+                      Text(
+                        post.totalValoraciones == 0
+                            ? 'Sin valoraciones'
+                            : '${post.promedio.toStringAsFixed(1)} '
+                                '(${post.totalValoraciones})',
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
                       const Icon(Icons.person_outline, size: 18),
                       const SizedBox(width: 5),
                       Expanded(
