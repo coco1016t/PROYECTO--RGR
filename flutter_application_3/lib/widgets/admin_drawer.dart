@@ -16,10 +16,14 @@ class AdminDrawer extends StatelessWidget {
   String get correo => usuario['mail']?.toString() ?? '';
 
   void _navegar(BuildContext context, String ruta) {
-    Navigator.pop(context);
+    final navigator = Navigator.of(context);
+    navigator.pop();
     if (ruta == rutaActual) return;
-    Navigator.pushReplacementNamed(
-      context,
+    if (ruta == '/mapa') {
+      navigator.pushNamed(ruta);
+      return;
+    }
+    navigator.pushReplacementNamed(
       ruta,
       arguments: usuario,
     );
@@ -34,43 +38,52 @@ class AdminDrawer extends StatelessWidget {
       child: SafeArea(
         child: Column(
           children: [
-            UserAccountsDrawerHeader(
-              decoration: BoxDecoration(color: scheme.primary),
-              currentAccountPicture: CircleAvatar(
-                backgroundColor: scheme.surface,
-                child: Icon(
-                  Icons.admin_panel_settings_outlined,
-                  color: scheme.primary,
-                  size: 32,
-                ),
+            Expanded(
+              child: ListView(
+                padding: EdgeInsets.zero,
+                children: [
+                  UserAccountsDrawerHeader(
+                    decoration: BoxDecoration(color: scheme.primary),
+                    currentAccountPicture: CircleAvatar(
+                      backgroundColor: scheme.surface,
+                      child: Icon(
+                        Icons.admin_panel_settings_outlined,
+                        color: scheme.primary,
+                        size: 32,
+                      ),
+                    ),
+                    accountName:
+                        Text(nombre, style: TextStyle(color: scheme.onPrimary)),
+                    accountEmail:
+                        Text(correo, style: TextStyle(color: scheme.onPrimary)),
+                  ),
+                  _opcion(
+                    context,
+                    Icons.people_alt_outlined,
+                    'Gestión de usuarios',
+                    '/users',
+                  ),
+                  _opcion(
+                      context, Icons.forum_outlined, 'Mensajes', '/mensajes'),
+                  _opcion(
+                      context, Icons.map_outlined, 'Mapa de lugares', '/mapa'),
+                  _opcion(
+                    context,
+                    Icons.person_add_alt_1_outlined,
+                    'Registrar usuario',
+                    '/register',
+                  ),
+                  _opcion(context, Icons.post_add_outlined, 'Agregar blog',
+                      '/add-blog'),
+                  _opcion(
+                    context,
+                    Icons.account_circle_outlined,
+                    'Mi perfil',
+                    '/profile',
+                  ),
+                ],
               ),
-              accountName:
-                  Text(nombre, style: TextStyle(color: scheme.onPrimary)),
-              accountEmail:
-                  Text(correo, style: TextStyle(color: scheme.onPrimary)),
             ),
-            _opcion(
-              context,
-              Icons.people_alt_outlined,
-              'Gestión de usuarios',
-              '/users',
-            ),
-            _opcion(context, Icons.forum_outlined, 'Mensajes', '/mensajes'),
-            _opcion(
-              context,
-              Icons.person_add_alt_1_outlined,
-              'Registrar usuario',
-              '/register',
-            ),
-            _opcion(
-                context, Icons.post_add_outlined, 'Agregar blog', '/add-blog'),
-            _opcion(
-              context,
-              Icons.account_circle_outlined,
-              'Mi perfil',
-              '/profile',
-            ),
-            const Spacer(),
             Divider(color: scheme.outline.withValues(alpha: .5), height: 1),
             ListTile(
               leading: Icon(Icons.logout_rounded,
