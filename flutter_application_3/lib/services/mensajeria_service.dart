@@ -15,10 +15,19 @@ class MensajeriaService {
 
   void dispose() => _cliente.close();
 
-  Future<List<ContactoMensajeria>> obtenerContactos() async {
+  Future<List<ContactoMensajeria>> buscarContactos(
+    String buscar, {
+    int limite = 8,
+  }) async {
+    final uri = Uri.parse('$baseUrl/mensajes/contactos').replace(
+      queryParameters: {
+        'buscar': buscar.trim(),
+        'limite': '$limite',
+      },
+    );
     final respuesta = await _cliente
         .get(
-          Uri.parse('$baseUrl/mensajes/contactos'),
+          uri,
           headers: SesionService.instance.headers(),
         )
         .timeout(const Duration(seconds: 10));
