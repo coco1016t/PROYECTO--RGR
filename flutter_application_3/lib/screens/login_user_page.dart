@@ -101,6 +101,7 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Scaffold(
       body: AuthBackground(
         child: SafeArea(
@@ -118,31 +119,31 @@ class _LoginPageState extends State<LoginPage> {
                           width: 64,
                           height: 64,
                           decoration: BoxDecoration(
-                            color: const Color(0xFFEEF5F4),
+                            color: scheme.secondaryContainer,
                             borderRadius: BorderRadius.circular(18),
                           ),
-                          child: const Icon(
+                          child: Icon(
                             Icons.lock,
                             size: 36,
-                            color: Color(0xFF527D7B),
+                            color: scheme.primary,
                           ),
                         ),
                         const SizedBox(height: 18),
-                        const Text(
+                        Text(
                           'INICIAR SESIÓN',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.w700,
-                            color: Color(0xFF243341),
+                            color: scheme.onSurface,
                           ),
                         ),
                         const SizedBox(height: 6),
-                        const Text(
+                        Text(
                           'Bienvenido de nuevo',
                           style: TextStyle(
                             fontSize: 14,
-                            color: Color(0xFF667483),
+                            color: scheme.onSurfaceVariant,
                           ),
                         ),
                         const SizedBox(height: 24),
@@ -177,9 +178,6 @@ class _LoginPageState extends State<LoginPage> {
                             onPressed: () {
                               Navigator.pushNamed(context, '/forgot-password');
                             },
-                            style: TextButton.styleFrom(
-                              foregroundColor: const Color(0xFF527D7B),
-                            ),
                             child: const Text('¿Olvidaste tu contraseña?'),
                           ),
                         ),
@@ -197,9 +195,6 @@ class _LoginPageState extends State<LoginPage> {
                           onPressed: () {
                             Navigator.pushNamed(context, '/mapa');
                           },
-                          style: TextButton.styleFrom(
-                            foregroundColor: const Color(0xFF527D7B),
-                          ),
                           icon: const Icon(Icons.map_outlined),
                           label: const Text('Abrir mapa de lugares'),
                         ),
@@ -208,17 +203,14 @@ class _LoginPageState extends State<LoginPage> {
                           alignment: WrapAlignment.center,
                           crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
-                            const Text(
+                            Text(
                               '¿No tienes cuenta?',
-                              style: TextStyle(color: Color(0xFF667483)),
+                              style: TextStyle(color: scheme.onSurfaceVariant),
                             ),
                             TextButton(
                               onPressed: () {
                                 Navigator.pushNamed(context, '/register');
                               },
-                              style: TextButton.styleFrom(
-                                foregroundColor: const Color(0xFF527D7B),
-                              ),
                               child: const Text('Registrarse'),
                             ),
                           ],
