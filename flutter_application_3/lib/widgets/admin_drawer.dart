@@ -44,13 +44,15 @@ class AdminDrawer extends StatelessWidget {
                   size: 32,
                 ),
               ),
-              accountName: Text(nombre),
-              accountEmail: Text(correo),
+              accountName:
+                  Text(nombre, style: TextStyle(color: scheme.onPrimary)),
+              accountEmail:
+                  Text(correo, style: TextStyle(color: scheme.onPrimary)),
             ),
             _opcion(
               context,
               Icons.people_alt_outlined,
-              'Gesti?n de usuarios',
+              'Gestión de usuarios',
               '/users',
             ),
             _opcion(context, Icons.forum_outlined, 'Mensajes', '/mensajes'),
@@ -71,10 +73,11 @@ class AdminDrawer extends StatelessWidget {
             const Spacer(),
             Divider(color: scheme.outline.withValues(alpha: .5), height: 1),
             ListTile(
-              leading: Icon(Icons.logout_rounded, color: scheme.error),
+              leading: Icon(Icons.logout_rounded,
+                  color: scheme.onSecondaryContainer),
               title: Text(
                 'Cerrar sesi\u00F3n',
-                style: TextStyle(color: scheme.error),
+                style: TextStyle(color: scheme.onSecondaryContainer),
               ),
               onTap: () {
                 SesionService.instance.cerrar();
@@ -105,13 +108,13 @@ class AdminDrawer extends StatelessWidget {
       leading: Icon(
         icono,
         color: seleccionado
-            ? scheme.primary
+            ? scheme.onSecondaryContainer
             : scheme.onSurface.withValues(alpha: .65),
       ),
       title: Text(
         titulo,
         style: TextStyle(
-          color: seleccionado ? scheme.primary : scheme.onSurface,
+          color: seleccionado ? scheme.onSecondaryContainer : scheme.onSurface,
           fontWeight: seleccionado ? FontWeight.w700 : FontWeight.w500,
         ),
       ),
