@@ -11,7 +11,7 @@ class AuthBackground extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ColoredBox(
-      color: const Color(0xFFF7F9F8),
+      color: Theme.of(context).scaffoldBackgroundColor,
       child: SizedBox.expand(child: child),
     );
   }
