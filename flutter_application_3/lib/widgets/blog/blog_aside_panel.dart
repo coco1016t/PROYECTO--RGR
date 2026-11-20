@@ -222,7 +222,7 @@ class _FeaturedPostTile extends StatelessWidget {
               child: Text(
                 '$position',
                 style: TextStyle(
-                  color: scheme.primary,
+                  color: scheme.onSecondaryContainer,
                   fontWeight: FontWeight.w800,
                   fontSize: 12,
                 ),
