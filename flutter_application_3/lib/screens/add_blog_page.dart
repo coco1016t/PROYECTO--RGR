@@ -139,7 +139,6 @@ class _AddBlogPageState extends State<AddBlogPage> {
                         controller: _titulo,
                         decoration: const InputDecoration(
                           labelText: 'Título',
-                          border: OutlineInputBorder(),
                         ),
                         validator: (v) => v == null || v.trim().isEmpty
                             ? 'Ingresa el título'
@@ -151,7 +150,6 @@ class _AddBlogPageState extends State<AddBlogPage> {
                         maxLines: 5,
                         decoration: const InputDecoration(
                           labelText: 'Descripción',
-                          border: OutlineInputBorder(),
                           alignLabelWithHint: true,
                         ),
                         validator: (v) => v == null || v.trim().isEmpty
@@ -186,11 +184,10 @@ class _AddBlogPageState extends State<AddBlogPage> {
                         decoration: const InputDecoration(
                           labelText: 'Etiquetas (opcional)',
                           hintText: 'flutter, tecnología, móvil',
-                          border: OutlineInputBorder(),
                         ),
                       ),
                       const SizedBox(height: 20),
-                      ElevatedButton.icon(
+                      FilledButton.icon(
                         onPressed: _guardando ? null : _guardar,
                         icon: _guardando
                             ? const SizedBox(
