@@ -1,7 +1,7 @@
-
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
+import '../models/public_user_profile_model.dart';
 import '../models/user_model.dart';
 import 'sesion_service.dart';
 
@@ -33,6 +33,25 @@ class UserService {
           ),
         )
         .toList();
+  }
+
+  Future<PublicUserProfileModel> obtenerPerfilPublico(int id) async {
+    final respuesta = await http
+        .get(
+          Uri.parse('$baseUrl/usuarios/$id/perfil'),
+          headers: SesionService.instance.headers(),
+        )
+        .timeout(const Duration(seconds: 10));
+
+    SesionService.instance.verificarSesion(respuesta.statusCode);
+
+    if (respuesta.statusCode != 200) {
+      throw Exception(_mensajeError(respuesta));
+    }
+
+    return PublicUserProfileModel.fromJson(
+      jsonDecode(respuesta.body) as Map<String, dynamic>,
+    );
   }
 
   /// Registro público (sin token) o alta hecha por un admin (con token).
@@ -89,8 +108,7 @@ class UserService {
 
     SesionService.instance.verificarSesion(respuesta.statusCode);
 
-    if (respuesta.statusCode != 200 &&
-        respuesta.statusCode != 204) {
+    if (respuesta.statusCode != 200 && respuesta.statusCode != 204) {
       throw Exception(_mensajeError(respuesta));
     }
   }
