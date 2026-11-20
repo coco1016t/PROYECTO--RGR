@@ -40,27 +40,34 @@ class BlogTopBar extends StatelessWidget implements PreferredSizeWidget {
             child: Icon(Icons.forum_rounded, color: scheme.primary, size: 19),
           ),
           const SizedBox(width: 11),
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'RGR',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.1,
+          Flexible(
+            flex: showTopSearch ? 0 : 1,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'RGR',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.1,
+                  ),
                 ),
-              ),
-              Text(
-                'Comunidad',
-                style: TextStyle(
-                  color: scheme.onSurface.withValues(alpha: .62),
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
+                Text(
+                  'Comunidad',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: scheme.onSurface.withValues(alpha: .62),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
           if (showTopSearch) ...[
             const SizedBox(width: 24),
