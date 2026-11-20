@@ -124,11 +124,13 @@ class _RegisterPageState extends State<RegisterPage> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Registro de usuario'),
-        backgroundColor: const Color(0xFFF7F9F8),
-        foregroundColor: const Color(0xFF243341),
+        backgroundColor: theme.scaffoldBackgroundColor,
         elevation: 0,
         scrolledUnderElevation: 0,
         leading: _esAdministrador
@@ -167,23 +169,23 @@ class _RegisterPageState extends State<RegisterPage> {
                           width: 64,
                           height: 64,
                           decoration: BoxDecoration(
-                            color: const Color(0xFFEEF5F4),
+                            color: scheme.secondaryContainer,
                             borderRadius: BorderRadius.circular(18),
                           ),
-                          child: const Icon(
+                          child: Icon(
                             Icons.person_add,
                             size: 34,
-                            color: Color(0xFF527D7B),
+                            color: scheme.primary,
                           ),
                         ),
                         const SizedBox(height: 18),
-                        const Text(
+                        Text(
                           'CREAR CUENTA',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.w700,
-                            color: Color(0xFF243341),
+                            color: scheme.onSurface,
                           ),
                         ),
                         const SizedBox(height: 24),
@@ -218,38 +220,10 @@ class _RegisterPageState extends State<RegisterPage> {
                           DropdownButtonFormField<int>(
                             initialValue: _tipoUsuario,
                             isExpanded: true,
-                            decoration: InputDecoration(
+                            decoration: const InputDecoration(
                               labelText: 'Tipo de usuario',
-                              labelStyle:
-                                  const TextStyle(color: Color(0xFF667483)),
-                              floatingLabelStyle: const TextStyle(
-                                color: Color(0xFF527D7B),
-                              ),
-                              filled: true,
-                              fillColor: Colors.white,
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 16,
-                              ),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide:
-                                    const BorderSide(color: Color(0xFFDCE3E8)),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide:
-                                    const BorderSide(color: Color(0xFFDCE3E8)),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: const BorderSide(
-                                  color: Color(0xFF527D7B),
-                                  width: 1.5,
-                                ),
-                              ),
                             ),
-                            style: const TextStyle(color: Color(0xFF243341)),
+                            style: TextStyle(color: scheme.onSurface),
                             items: const [
                               DropdownMenuItem(
                                 value: 1,
@@ -278,9 +252,6 @@ class _RegisterPageState extends State<RegisterPage> {
                         TextButton(
                           onPressed:
                               _cargando ? null : () => Navigator.pop(context),
-                          style: TextButton.styleFrom(
-                            foregroundColor: const Color(0xFF527D7B),
-                          ),
                           child: const Text('Ya tengo una cuenta'),
                         ),
                       ],
