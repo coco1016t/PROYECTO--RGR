@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import '../models/user_model.dart';
 import '../services/user_service.dart';
+import '../theme/blog_theme.dart';
 import '../widgets/admin_drawer.dart';
+import '../widgets/user_drawer.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -47,7 +49,9 @@ class _ProfilePageState extends State<ProfilePage> {
     final id = _usuario['id_usr'];
     if (id is! num) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No se recibió el identificador del usuario. Vuelve a iniciar sesión.')),
+        const SnackBar(
+            content: Text(
+                'No se recibió el identificador del usuario. Vuelve a iniciar sesión.')),
       );
       return;
     }
@@ -86,62 +90,86 @@ class _ProfilePageState extends State<ProfilePage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Mi perfil')),
-      drawer: AdminDrawer(usuario: _usuario, rutaActual: '/profile'),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 650),
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
-            child: Card(
-              child: Padding(
+    final esAdmin = (_usuario['tip_usu'] as num?)?.toInt() == 1;
+
+    return ValueListenableBuilder<bool>(
+      valueListenable: BlogTheme.darkMode,
+      builder: (context, darkMode, _) => Theme(
+        data: BlogTheme.forMode(darkMode),
+        child: Scaffold(
+          appBar: AppBar(title: const Text('Mi perfil')),
+          drawer: esAdmin
+              ? AdminDrawer(usuario: _usuario, rutaActual: '/profile')
+              : UserDrawer(
+                  usuario: _usuario,
+                  tabActual: 0,
+                  rutaActual: '/profile',
+                  onCambiarTab: (indice) {
+                    Navigator.pushReplacementNamed(
+                      context,
+                      '/blog',
+                      arguments: {..._usuario, 'tab_inicial': indice},
+                    );
+                  },
+                ),
+          body: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 650),
+              child: SingleChildScrollView(
                 padding: const EdgeInsets.all(20),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      const CircleAvatar(
-                        radius: 38,
-                        child: Icon(Icons.person, size: 42),
+                child: Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const CircleAvatar(
+                            radius: 38,
+                            child: Icon(Icons.person, size: 42),
+                          ),
+                          const SizedBox(height: 18),
+                          TextFormField(
+                            controller: _nombre,
+                            decoration: const InputDecoration(
+                              labelText: 'Nombre completo',
+                              border: OutlineInputBorder(),
+                            ),
+                            validator: (v) => v == null || v.trim().length < 2
+                                ? 'Ingresa un nombre válido'
+                                : null,
+                          ),
+                          const SizedBox(height: 14),
+                          TextFormField(
+                            controller: _correo,
+                            keyboardType: TextInputType.emailAddress,
+                            decoration: const InputDecoration(
+                              labelText: 'Correo electrónico',
+                              border: OutlineInputBorder(),
+                            ),
+                            validator: (v) => v == null || !v.contains('@')
+                                ? 'Ingresa un correo válido'
+                                : null,
+                          ),
+                          const SizedBox(height: 14),
+                          TextFormField(
+                            controller: _direccion,
+                            decoration: const InputDecoration(
+                              labelText: 'Dirección',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          ElevatedButton.icon(
+                            onPressed: _cargando ? null : _guardar,
+                            icon: const Icon(Icons.save),
+                            label: Text(
+                                _cargando ? 'Guardando...' : 'Guardar cambios'),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 18),
-                      TextFormField(
-                        controller: _nombre,
-                        decoration: const InputDecoration(
-                          labelText: 'Nombre completo',
-                          border: OutlineInputBorder(),
-                        ),
-                        validator: (v) => v == null || v.trim().length < 2
-                            ? 'Ingresa un nombre válido' : null,
-                      ),
-                      const SizedBox(height: 14),
-                      TextFormField(
-                        controller: _correo,
-                        keyboardType: TextInputType.emailAddress,
-                        decoration: const InputDecoration(
-                          labelText: 'Correo electrónico',
-                          border: OutlineInputBorder(),
-                        ),
-                        validator: (v) => v == null || !v.contains('@')
-                            ? 'Ingresa un correo válido' : null,
-                      ),
-                      const SizedBox(height: 14),
-                      TextFormField(
-                        controller: _direccion,
-                        decoration: const InputDecoration(
-                          labelText: 'Dirección',
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      ElevatedButton.icon(
-                        onPressed: _cargando ? null : _guardar,
-                        icon: const Icon(Icons.save),
-                        label: Text(_cargando ? 'Guardando...' : 'Guardar cambios'),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
               ),
