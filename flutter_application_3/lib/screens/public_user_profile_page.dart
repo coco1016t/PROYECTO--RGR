@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../models/public_user_profile_model.dart';
 import '../services/user_service.dart';
-import '../theme/blog_theme.dart';
 import '../widgets/public_profile/public_user_post_card.dart';
 
 class PublicUserProfilePage extends StatefulWidget {
@@ -213,15 +212,9 @@ class _PublicUserProfilePageState extends State<PublicUserProfilePage> {
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<bool>(
-      valueListenable: BlogTheme.darkMode,
-      builder: (context, darkMode, _) => Theme(
-        data: BlogTheme.forMode(darkMode),
-        child: Scaffold(
-          appBar: AppBar(title: Text(widget.initialName)),
-          body: _contenido(context),
-        ),
-      ),
+    return Scaffold(
+      appBar: AppBar(title: Text(widget.initialName)),
+      body: _contenido(context),
     );
   }
 }
