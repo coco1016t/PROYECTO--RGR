@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 
 class ChatHeader extends StatelessWidget {
   final String contactName;
+  final VoidCallback onOpenProfile;
 
   const ChatHeader({
     super.key,
     required this.contactName,
+    required this.onOpenProfile,
   });
 
   @override
@@ -36,29 +38,36 @@ class ChatHeader extends StatelessWidget {
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    contactName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: scheme.onSurface,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                    ),
+              child: InkWell(
+                onTap: onOpenProfile,
+                mouseCursor: SystemMouseCursors.click,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        contactName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: scheme.onSurface,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        'Conversación privada · Solo texto',
+                        style: TextStyle(
+                          color: scheme.onSurface.withValues(alpha: .6),
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 3),
-                  Text(
-                    'Conversación privada · Solo texto',
-                    style: TextStyle(
-                      color: scheme.onSurface.withValues(alpha: .6),
-                      fontSize: 11,
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
           ],
