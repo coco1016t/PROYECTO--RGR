@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/comentario_model.dart';
 import '../models/mensaje_model.dart';
 import '../models/post_model.dart';
+import '../navigation/user_profile_navigation.dart';
 import '../services/comentario_service.dart';
 import '../services/mensajeria_service.dart';
 import '../services/post_service.dart';
@@ -441,6 +442,18 @@ class _PostDetailPageState extends State<PostDetailPage> {
                         const SizedBox(height: 20),
                         LayoutBuilder(
                           builder: (context, authorConstraints) {
+                            final etiquetaAutor = Text(
+                              post.autor.isEmpty
+                                  ? 'Autor desconocido'
+                                  : post.autor,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: _detailAccent,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            );
                             final autor = Row(
                               children: [
                                 const CircleAvatar(
@@ -453,18 +466,19 @@ class _PostDetailPageState extends State<PostDetailPage> {
                                 ),
                                 const SizedBox(width: 12),
                                 Expanded(
-                                  child: Text(
-                                    post.autor.isEmpty
-                                        ? 'Autor desconocido'
-                                        : post.autor,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      color: _detailText,
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
+                                  child: post.usuarioId == null
+                                      ? etiquetaAutor
+                                      : InkWell(
+                                          onTap: () => abrirPerfilUsuario(
+                                            context,
+                                            userId: post.usuarioId!,
+                                            userName: post.autor.isEmpty
+                                                ? 'Usuario'
+                                                : post.autor,
+                                          ),
+                                          mouseCursor: SystemMouseCursors.click,
+                                          child: etiquetaAutor,
+                                        ),
                                 ),
                               ],
                             );
