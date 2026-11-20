@@ -5,7 +5,12 @@ import 'package:flutter/material.dart';
 import '../models/mensaje_model.dart';
 import '../services/mensajeria_service.dart';
 import '../services/sesion_service.dart';
+import '../theme/blog_theme.dart';
 import '../widgets/admin_drawer.dart';
+import '../widgets/mensajeria/chat_header.dart';
+import '../widgets/mensajeria/contactos_panel.dart';
+import '../widgets/mensajeria/text_message_composer.dart';
+import '../widgets/theme_mode_buttons.dart';
 
 String _normalizarNombre(String nombre) =>
     nombre.trim().replaceAll(RegExp(r'\s+'), ' ').toLowerCase();
@@ -34,8 +39,9 @@ class MensajesPage extends StatefulWidget {
 
 class _MensajesPageState extends State<MensajesPage> {
   final MensajeriaService _servicio = MensajeriaService();
+  final TextEditingController _busqueda = TextEditingController();
   List<ConversacionMensajeria> _conversaciones = [];
-  List<ContactoMensajeria> _contactos = [];
+  ConversacionMensajeria? _seleccionada;
   bool _cargando = true;
   bool _cargandoBandeja = false;
   bool _abriendoContacto = false;
@@ -49,6 +55,7 @@ class _MensajesPageState extends State<MensajesPage> {
 
   @override
   void dispose() {
+    _busqueda.dispose();
     _servicio.dispose();
     super.dispose();
   }
@@ -65,11 +72,23 @@ class _MensajesPageState extends State<MensajesPage> {
 
     try {
       final conversaciones = await _servicio.obtenerConversaciones();
-      final contactos = await _servicio.obtenerContactos();
       if (!mounted) return;
+
       setState(() {
         _conversaciones = conversaciones;
-        _contactos = contactos;
+
+        final selectedId = _seleccionada?.id;
+        if (selectedId != null) {
+          for (final conversacion in conversaciones) {
+            if (conversacion.id == selectedId) {
+              _seleccionada = conversacion;
+              break;
+            }
+          }
+        } else if (MediaQuery.sizeOf(context).width >= 900 &&
+            conversaciones.isNotEmpty) {
+          _seleccionada = conversaciones.first;
+        }
       });
     } catch (error) {
       if (!mounted) return;
@@ -84,35 +103,40 @@ class _MensajesPageState extends State<MensajesPage> {
     return nombreContactoVisible(
       contacto.nombre,
       contacto.id,
-      _contactos,
+      _conversaciones.map((conversacion) => conversacion.contacto),
     );
   }
 
   Future<void> _seleccionarContacto() async {
     if (_abriendoContacto) return;
-    if (_contactos.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No hay otros usuarios registrados.')),
-      );
-      return;
-    }
 
     final contacto = await showModalBottomSheet<ContactoMensajeria>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      builder: (_) => _SelectorContactos(contactos: _contactos),
+      builder: (_) => _SelectorContactos(
+        buscarContactos: _servicio.buscarContactos,
+      ),
     );
-    if (contacto == null || !mounted) return;
+    if (contacto != null && mounted) {
+      await _abrirContacto(contacto);
+    }
+  }
 
+  Future<void> _abrirContacto(ContactoMensajeria contacto) async {
+    if (_abriendoContacto) return;
     setState(() => _abriendoContacto = true);
+
     try {
-      final conversacion = await _servicio.abrirConversacion(contacto.id);
-      if (!mounted) return;
-      await _abrirChat(
-        conversacion.id,
-        conversacion.contacto,
-      );
+      ConversacionMensajeria? conversacion;
+      for (final actual in _conversaciones) {
+        if (actual.contacto.id == contacto.id) {
+          conversacion = actual;
+          break;
+        }
+      }
+      conversacion ??= await _servicio.abrirConversacion(contacto.id);
+      if (mounted) await _abrirChat(conversacion);
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -125,14 +149,22 @@ class _MensajesPageState extends State<MensajesPage> {
     }
   }
 
-  Future<void> _abrirChat(
-    int conversacionId,
-    ContactoMensajeria contacto,
-  ) async {
+  Future<void> _abrirChat(ConversacionMensajeria conversacion) async {
+    final contacto = conversacion.contacto;
+    if (MediaQuery.sizeOf(context).width >= 900) {
+      setState(() {
+        _seleccionada = conversacion;
+        if (!_conversaciones.any((item) => item.id == conversacion.id)) {
+          _conversaciones = [conversacion, ..._conversaciones];
+        }
+      });
+      return;
+    }
+
     await Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
         builder: (_) => ChatPrivadoPage(
-          conversacionId: conversacionId,
+          conversacionId: conversacion.id,
           contacto: contacto,
           nombreContacto: _nombreVisible(contacto),
         ),
@@ -151,149 +183,114 @@ class _MensajesPageState extends State<MensajesPage> {
     return '${dosDigitos(fecha.day)}/${dosDigitos(fecha.month)}';
   }
 
-  Widget _contenido() {
-    if (_cargando && _conversaciones.isEmpty && _error == null) {
-      return const Center(child: CircularProgressIndicator());
-    }
-    if (_error != null && _conversaciones.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.cloud_off, size: 44),
-              const SizedBox(height: 12),
-              const Text('No se pudieron cargar tus mensajes.'),
-              const SizedBox(height: 8),
-              Text(_error!, textAlign: TextAlign.center),
-              const SizedBox(height: 12),
-              ElevatedButton.icon(
-                onPressed: _cargarBandeja,
-                icon: const Icon(Icons.refresh),
-                label: const Text('Reintentar'),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-    if (_conversaciones.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(28),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(
-                Icons.forum_outlined,
-                size: 58,
-                color: Color(0xFF08245C),
-              ),
-              const SizedBox(height: 14),
-              const Text(
-                'Aún no tienes conversaciones',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 6),
-              const Text(
-                'Inicia un chat privado con otro usuario.',
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 18),
-              FilledButton.icon(
-                onPressed: _abriendoContacto ? null : _seleccionarContacto,
-                icon: const Icon(Icons.person_add_alt_1),
-                label: const Text('Nuevo mensaje'),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
+  Widget _panelContactos() {
+    return ContactosPanel(
+      conversaciones: _conversaciones,
+      conversacionSeleccionadaId: _seleccionada?.id,
+      busquedaController: _busqueda,
+      cargando: _cargando,
+      error: _error,
+      nombreVisible: _nombreVisible,
+      hora: _hora,
+      onNuevaConversacion: () => unawaited(_seleccionarContacto()),
+      onSeleccionarConversacion: (conversacion) =>
+          unawaited(_abrirChat(conversacion)),
+      onCambiarBusqueda: (_) => setState(() {}),
+    );
+  }
 
-    return RefreshIndicator(
-      onRefresh: _cargarBandeja,
-      child: ListView.separated(
-        physics: const AlwaysScrollableScrollPhysics(),
-        itemCount: _conversaciones.length,
-        separatorBuilder: (_, __) => const Divider(height: 1, indent: 76),
-        itemBuilder: (context, index) {
-          final conversacion = _conversaciones[index];
-          final contacto = conversacion.contacto;
-          final nombre = _nombreVisible(contacto);
-          final pendientes = conversacion.noLeidos;
-          return ListTile(
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 6,
+  Widget _sinSeleccionar(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return Container(
+      color: Theme.of(context).scaffoldBackgroundColor,
+      alignment: Alignment.center,
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.forum_outlined,
+              size: 52,
+              color: scheme.primary.withValues(alpha: .78),
             ),
-            leading: CircleAvatar(
-              backgroundColor: const Color(0xFFE7EEFC),
-              foregroundColor: const Color(0xFF08245C),
-              child: Text(
-                contacto.nombre.trim().isEmpty
-                    ? '?'
-                    : contacto.nombre.trim()[0].toUpperCase(),
-              ),
-            ),
-            title: Text(
-              nombre,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+            const SizedBox(height: 16),
+            Text(
+              'Tus mensajes privados',
               style: TextStyle(
-                fontWeight: pendientes > 0 ? FontWeight.bold : FontWeight.w600,
+                color: scheme.onSurface,
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
               ),
             ),
-            subtitle: Text(
-              conversacion.ultimoMensaje ?? '',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+            const SizedBox(height: 7),
+            Text(
+              'Selecciona una conversación o inicia un nuevo chat.',
+              textAlign: TextAlign.center,
               style: TextStyle(
-                color: pendientes > 0 ? Colors.black87 : Colors.black54,
-                fontWeight:
-                    pendientes > 0 ? FontWeight.w600 : FontWeight.normal,
+                color: scheme.onSurface.withValues(alpha: .62),
               ),
             ),
-            trailing: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  _hora(conversacion.fechaUltimoMensaje),
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: pendientes > 0
-                        ? const Color(0xFF08245C)
-                        : Colors.black54,
-                  ),
-                ),
-                if (pendientes > 0) ...[
-                  const SizedBox(height: 5),
-                  Container(
-                    constraints: const BoxConstraints(minWidth: 20),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
-                      vertical: 2,
-                    ),
-                    decoration: const BoxDecoration(
-                      color: Color(0xFF2196F3),
-                      borderRadius: BorderRadius.all(Radius.circular(20)),
-                    ),
-                    child: Text(
-                      pendientes > 99 ? '99+' : '$pendientes',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _construirVista(BuildContext context, bool darkMode) {
+    final usuario = SesionService.instance.usuario;
+    final esAdmin = SesionService.instance.tipoUsuario == 1;
+
+    return Scaffold(
+      drawer: esAdmin
+          ? AdminDrawer(usuario: usuario, rutaActual: '/mensajes')
+          : null,
+      appBar: AppBar(
+        title: const Text('Mensajes privados'),
+        actions: [
+          ThemeModeButtons(
+            darkMode: darkMode,
+            onLightMode: () => BlogTheme.darkMode.value = false,
+            onDarkMode: () => BlogTheme.darkMode.value = true,
+          ),
+          IconButton(
+            tooltip: 'Actualizar bandeja',
+            onPressed: _cargando ? null : () => unawaited(_cargarBandeja()),
+            icon: const Icon(Icons.refresh_rounded),
+          ),
+        ],
+      ),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          if (constraints.maxWidth < 900) {
+            return _panelContactos();
+          }
+
+          return Row(
+            children: [
+              SizedBox(width: 360, child: _panelContactos()),
+              VerticalDivider(
+                width: 1,
+                thickness: 1,
+                color: Theme.of(context)
+                    .colorScheme
+                    .outline
+                    .withValues(alpha: .45),
+              ),
+              Expanded(
+                child: _seleccionada == null
+                    ? _sinSeleccionar(context)
+                    : ChatPrivadoPage(
+                        key: ValueKey(_seleccionada!.id),
+                        conversacionId: _seleccionada!.id,
+                        contacto: _seleccionada!.contacto,
+                        nombreContacto: _nombreVisible(_seleccionada!.contacto),
+                        embedded: true,
+                        onActividad: () => unawaited(_cargarBandeja()),
                       ),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-            onTap: () => _abrirChat(conversacion.id, contacto),
+              ),
+            ],
           );
         },
       ),
@@ -302,62 +299,24 @@ class _MensajesPageState extends State<MensajesPage> {
 
   @override
   Widget build(BuildContext context) {
-    final usuario = SesionService.instance.usuario;
-    final esAdmin = SesionService.instance.tipoUsuario == 1;
-    return Scaffold(
-      drawer: esAdmin
-          ? AdminDrawer(usuario: usuario, rutaActual: '/mensajes')
-          : null,
-      appBar: AppBar(
-        title: const Text('Mensajes'),
-        actions: [
-          IconButton(
-            tooltip: 'Actualizar bandeja',
-            onPressed: _cargando ? null : _cargarBandeja,
-            icon: const Icon(Icons.refresh),
-          ),
-        ],
+    return ValueListenableBuilder<bool>(
+      valueListenable: BlogTheme.darkMode,
+      builder: (context, darkMode, _) => Theme(
+        data: BlogTheme.forMode(darkMode),
+        child: Builder(
+          builder: (themeContext) => _construirVista(themeContext, darkMode),
+        ),
       ),
-      body: _error != null && _conversaciones.isNotEmpty
-          ? Column(
-              children: [
-                MaterialBanner(
-                  content: Text('No se pudo actualizar: $_error'),
-                  actions: [
-                    TextButton(
-                      onPressed: _cargarBandeja,
-                      child: const Text('Reintentar'),
-                    ),
-                  ],
-                ),
-                Expanded(child: _contenido()),
-              ],
-            )
-          : _contenido(),
-      floatingActionButton: _conversaciones.isNotEmpty
-          ? FloatingActionButton.extended(
-              onPressed: _abriendoContacto ? null : _seleccionarContacto,
-              icon: _abriendoContacto
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : const Icon(Icons.edit_outlined),
-              label: Text(_abriendoContacto ? 'Abriendo...' : 'Nuevo mensaje'),
-            )
-          : null,
     );
   }
 }
 
 class _SelectorContactos extends StatefulWidget {
-  final List<ContactoMensajeria> contactos;
+  final Future<List<ContactoMensajeria>> Function(String) buscarContactos;
 
-  const _SelectorContactos({required this.contactos});
+  const _SelectorContactos({
+    required this.buscarContactos,
+  });
 
   @override
   State<_SelectorContactos> createState() => _SelectorContactosState();
@@ -365,73 +324,226 @@ class _SelectorContactos extends StatefulWidget {
 
 class _SelectorContactosState extends State<_SelectorContactos> {
   final TextEditingController _busqueda = TextEditingController();
+  Timer? _temporizador;
+  List<ContactoMensajeria> _resultados = [];
   String _filtro = '';
+  String? _error;
+  bool _cargando = false;
+  int _idSolicitud = 0;
 
   @override
   void dispose() {
+    _temporizador?.cancel();
     _busqueda.dispose();
     super.dispose();
   }
 
+  void _actualizarBusqueda(String value) {
+    _temporizador?.cancel();
+    final termino = value.trim();
+    final idSolicitud = ++_idSolicitud;
+
+    setState(() {
+      _filtro = termino;
+      _resultados = [];
+      _error = null;
+      _cargando = termino.length >= 2;
+    });
+
+    if (termino.length < 2) {
+      _cargando = false;
+      return;
+    }
+
+    _temporizador = Timer(
+      const Duration(milliseconds: 280),
+      () => _buscar(termino, idSolicitud),
+    );
+  }
+
+  Future<void> _buscar(String termino, int idSolicitud) async {
+    try {
+      final resultados = await widget.buscarContactos(termino);
+      if (!mounted || idSolicitud != _idSolicitud) return;
+      setState(() {
+        _resultados = resultados;
+        _cargando = false;
+      });
+    } catch (error) {
+      if (!mounted || idSolicitud != _idSolicitud) return;
+      setState(() {
+        _error = error.toString().replaceFirst('Exception: ', '');
+        _cargando = false;
+      });
+    }
+  }
+
+  Future<void> _reintentar() async {
+    if (_filtro.length < 2) return;
+    final idSolicitud = ++_idSolicitud;
+    setState(() {
+      _error = null;
+      _cargando = true;
+    });
+    await _buscar(_filtro, idSolicitud);
+  }
+
+  Widget _contenidoResultados(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    if (_filtro.length < 2) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(26),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.person_search_outlined,
+                size: 42,
+                color: scheme.primary.withValues(alpha: .78),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Busca por nombre de usuario',
+                style: TextStyle(
+                  color: scheme.onSurface,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Escribe al menos dos letras para ver coincidencias.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: scheme.onSurface.withValues(alpha: .62),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (_cargando) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_error != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(22),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(_error!, textAlign: TextAlign.center),
+              const SizedBox(height: 10),
+              TextButton.icon(
+                onPressed: _reintentar,
+                icon: const Icon(Icons.refresh_rounded),
+                label: const Text('Reintentar búsqueda'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    if (_resultados.isEmpty) {
+      return Center(
+        child: Text(
+          'No encontramos usuarios con ese nombre.',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: scheme.onSurface.withValues(alpha: .62)),
+        ),
+      );
+    }
+
+    return ListView.separated(
+      itemCount: _resultados.length,
+      separatorBuilder: (_, __) => const Divider(height: 1, indent: 68),
+      itemBuilder: (context, index) {
+        final contacto = _resultados[index];
+        return ListTile(
+          leading: CircleAvatar(
+            backgroundColor: scheme.secondaryContainer,
+            foregroundColor: scheme.primary,
+            child: Text(
+              contacto.nombre.trim().isEmpty
+                  ? '?'
+                  : contacto.nombre.trim()[0].toUpperCase(),
+            ),
+          ),
+          title: Text(
+            nombreContactoVisible(
+              contacto.nombre,
+              contacto.id,
+              _resultados,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          subtitle: const Text('Iniciar conversación'),
+          onTap: () => Navigator.pop(context, contacto),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final filtro = _normalizarNombre(_filtro);
-    final visibles = widget.contactos.where((contacto) {
-      return _normalizarNombre(contacto.nombre).contains(filtro);
-    }).toList();
+    final scheme = Theme.of(context).colorScheme;
 
     return SafeArea(
       child: Padding(
         padding: EdgeInsets.only(
-          left: 16,
-          right: 16,
-          top: 4,
+          left: 18,
+          right: 18,
+          top: 5,
           bottom: MediaQuery.viewInsetsOf(context).bottom + 16,
         ),
         child: SizedBox(
-          height: MediaQuery.sizeOf(context).height * 0.72,
+          height: MediaQuery.sizeOf(context).height * .72,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text(
-                'Nuevo mensaje',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              Text(
+                'Nuevo chat',
+                style: TextStyle(
+                  color: scheme.onSurface,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 5),
+              Text(
+                'Encuentra a una persona por su nombre de usuario.',
+                style: TextStyle(
+                  color: scheme.onSurface.withValues(alpha: .62),
+                  fontSize: 13,
+                ),
+              ),
+              const SizedBox(height: 14),
               TextField(
                 controller: _busqueda,
-                onChanged: (value) => setState(() => _filtro = value),
-                decoration: const InputDecoration(
-                  prefixIcon: Icon(Icons.search),
-                  hintText: 'Buscar usuario',
-                  border: OutlineInputBorder(),
-                  isDense: true,
+                autofocus: true,
+                onChanged: _actualizarBusqueda,
+                textInputAction: TextInputAction.search,
+                decoration: InputDecoration(
+                  prefixIcon: const Icon(Icons.search_rounded),
+                  hintText: 'Nombre de usuario',
+                  suffixIcon: _busqueda.text.isEmpty
+                      ? null
+                      : IconButton(
+                          tooltip: 'Limpiar búsqueda',
+                          onPressed: () {
+                            _busqueda.clear();
+                            _actualizarBusqueda('');
+                          },
+                          icon: const Icon(Icons.close_rounded),
+                        ),
                 ),
               ),
               const SizedBox(height: 8),
-              Expanded(
-                child: visibles.isEmpty
-                    ? const Center(child: Text('No se encontraron usuarios.'))
-                    : ListView.builder(
-                        itemCount: visibles.length,
-                        itemBuilder: (context, index) {
-                          final contacto = visibles[index];
-                          return ListTile(
-                            leading: const CircleAvatar(
-                              child: Icon(Icons.person_outline),
-                            ),
-                            title: Text(
-                              nombreContactoVisible(
-                                contacto.nombre,
-                                contacto.id,
-                                widget.contactos,
-                              ),
-                            ),
-                            onTap: () => Navigator.pop(context, contacto),
-                          );
-                        },
-                      ),
-              ),
+              Expanded(child: _contenidoResultados(context)),
             ],
           ),
         ),
@@ -444,12 +556,16 @@ class ChatPrivadoPage extends StatefulWidget {
   final int conversacionId;
   final ContactoMensajeria contacto;
   final String nombreContacto;
+  final bool embedded;
+  final VoidCallback? onActividad;
 
   const ChatPrivadoPage({
     super.key,
     required this.conversacionId,
     required this.contacto,
     required this.nombreContacto,
+    this.embedded = false,
+    this.onActividad,
   });
 
   @override
@@ -675,6 +791,7 @@ class _ChatPrivadoPageState extends State<ChatPrivadoPage>
           }
         }
         if (estabaAlFinal) _bajarAlFinal(animado: true);
+        widget.onActividad?.call();
       } else {
         setState(() => _errorActualizacion = null);
       }
@@ -761,6 +878,7 @@ class _ChatPrivadoPageState extends State<ChatPrivadoPage>
         _nuevosSinVer = 0;
       });
       _bajarAlFinal(animado: true);
+      widget.onActividad?.call();
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -780,31 +898,38 @@ class _ChatPrivadoPageState extends State<ChatPrivadoPage>
   }
 
   Widget _burbuja(MensajeChat mensaje) {
+    final scheme = Theme.of(context).colorScheme;
     final esMio = mensaje.emisorId == _miId;
-    final color = esMio ? const Color(0xFF08245C) : Colors.white;
-    final texto = esMio ? Colors.white : const Color(0xFF172033);
+    final color = esMio ? scheme.primary : scheme.surface;
+    final texto = esMio ? scheme.onPrimary : scheme.onSurface;
+    final maxWidth =
+        (MediaQuery.sizeOf(context).width * .72).clamp(280.0, 720.0).toDouble();
+
     return Align(
       alignment: esMio ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
-        constraints: BoxConstraints(
-          maxWidth: MediaQuery.sizeOf(context).width * 0.78,
-        ),
-        margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 12),
-        padding: const EdgeInsets.fromLTRB(13, 9, 11, 6),
+        constraints: BoxConstraints(maxWidth: maxWidth),
+        margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 14),
+        padding: const EdgeInsets.fromLTRB(14, 10, 12, 7),
         decoration: BoxDecoration(
           color: color,
           borderRadius: BorderRadius.only(
-            topLeft: const Radius.circular(16),
-            topRight: const Radius.circular(16),
-            bottomLeft: Radius.circular(esMio ? 16 : 4),
-            bottomRight: Radius.circular(esMio ? 4 : 16),
+            topLeft: const Radius.circular(17),
+            topRight: const Radius.circular(17),
+            bottomLeft: Radius.circular(esMio ? 17 : 5),
+            bottomRight: Radius.circular(esMio ? 5 : 17),
           ),
-          border: esMio ? null : Border.all(color: const Color(0xFFE2E7EF)),
-          boxShadow: const [
+          border: esMio
+              ? null
+              : Border.all(color: scheme.outline.withValues(alpha: .45)),
+          boxShadow: [
             BoxShadow(
-              color: Color(0x10000000),
+              color: Colors.black.withValues(
+                alpha:
+                    Theme.of(context).brightness == Brightness.dark ? .18 : .06,
+              ),
               blurRadius: 3,
-              offset: Offset(0, 1),
+              offset: const Offset(0, 1),
             ),
           ],
         ),
@@ -815,14 +940,16 @@ class _ChatPrivadoPageState extends State<ChatPrivadoPage>
               alignment: Alignment.centerLeft,
               child: Text(
                 mensaje.contenido,
-                style: TextStyle(color: texto, fontSize: 15, height: 1.3),
+                style: TextStyle(color: texto, fontSize: 15, height: 1.35),
               ),
             ),
-            const SizedBox(height: 3),
+            const SizedBox(height: 4),
             Text(
               _hora(mensaje.fechaEnvio),
               style: TextStyle(
-                color: esMio ? Colors.white70 : Colors.black45,
+                color: esMio
+                    ? scheme.onPrimary.withValues(alpha: .72)
+                    : scheme.onSurface.withValues(alpha: .55),
                 fontSize: 10,
               ),
             ),
@@ -833,6 +960,8 @@ class _ChatPrivadoPageState extends State<ChatPrivadoPage>
   }
 
   Widget _listaMensajes() {
+    final scheme = Theme.of(context).colorScheme;
+
     if (_cargandoInicial && _mensajes.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -843,13 +972,21 @@ class _ChatPrivadoPageState extends State<ChatPrivadoPage>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.cloud_off, size: 42),
+              Icon(
+                Icons.cloud_off_outlined,
+                size: 42,
+                color: scheme.onSurface.withValues(alpha: .62),
+              ),
               const SizedBox(height: 10),
-              Text(_errorCarga!, textAlign: TextAlign.center),
+              Text(
+                _errorCarga!,
+                textAlign: TextAlign.center,
+                style: TextStyle(color: scheme.onSurface),
+              ),
               const SizedBox(height: 10),
               ElevatedButton.icon(
                 onPressed: _cargarInicial,
-                icon: const Icon(Icons.refresh),
+                icon: const Icon(Icons.refresh_rounded),
                 label: const Text('Reintentar'),
               ),
             ],
@@ -861,13 +998,22 @@ class _ChatPrivadoPageState extends State<ChatPrivadoPage>
     return Stack(
       children: [
         if (_mensajes.isEmpty)
-          const Center(
-            child: Text('Envía un mensaje para iniciar la conversación.'),
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Text(
+                'Env\u00EDa un mensaje para iniciar la conversaci\u00F3n.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: scheme.onSurface.withValues(alpha: .62),
+                ),
+              ),
+            ),
           )
         else
           ListView.builder(
             controller: _scroll,
-            padding: const EdgeInsets.only(top: 10, bottom: 14),
+            padding: const EdgeInsets.only(top: 14, bottom: 18),
             itemCount: _mensajes.length + (_cargandoAnteriores ? 1 : 0),
             itemBuilder: (context, index) {
               if (_cargandoAnteriores && index == 0) {
@@ -890,15 +1036,18 @@ class _ChatPrivadoPageState extends State<ChatPrivadoPage>
           Align(
             alignment: Alignment.topCenter,
             child: Material(
-              color: const Color(0xFFFFF4D5),
+              color: scheme.errorContainer,
               child: Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 12,
                   vertical: 7,
                 ),
                 child: Text(
-                  'No se pudo actualizar. Reintentando…',
-                  style: TextStyle(color: Colors.brown.shade800, fontSize: 12),
+                  'No se pudo actualizar. Reintentando...',
+                  style: TextStyle(
+                    color: scheme.onErrorContainer,
+                    fontSize: 12,
+                  ),
                 ),
               ),
             ),
@@ -917,7 +1066,7 @@ class _ChatPrivadoPageState extends State<ChatPrivadoPage>
                   });
                   _bajarAlFinal(animado: true);
                 },
-                icon: const Icon(Icons.arrow_downward),
+                icon: const Icon(Icons.arrow_downward_rounded),
                 label: Text('$_nuevosSinVer mensajes nuevos'),
               ),
             ),
@@ -926,8 +1075,29 @@ class _ChatPrivadoPageState extends State<ChatPrivadoPage>
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
+  Widget _cuerpoChat(BuildContext context) {
+    return ColoredBox(
+      color: Theme.of(context).scaffoldBackgroundColor,
+      child: Column(
+        children: [
+          if (widget.embedded)
+            ChatHeader(
+              contactName: widget.nombreContacto,
+            ),
+          Expanded(child: _listaMensajes()),
+          TextMessageComposer(
+            controller: _composer,
+            sending: _enviando,
+            onSend: _enviar,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _vistaChat(BuildContext context, bool darkMode) {
+    if (widget.embedded) return _cuerpoChat(context);
+
     return Scaffold(
       appBar: AppBar(
         title: Text(
@@ -936,68 +1106,31 @@ class _ChatPrivadoPageState extends State<ChatPrivadoPage>
           overflow: TextOverflow.ellipsis,
         ),
         actions: [
+          ThemeModeButtons(
+            darkMode: darkMode,
+            onLightMode: () => BlogTheme.darkMode.value = false,
+            onDarkMode: () => BlogTheme.darkMode.value = true,
+          ),
           IconButton(
             tooltip: 'Actualizar mensajes',
             onPressed: _consultarNuevos,
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh_rounded),
           ),
         ],
       ),
-      body: Column(
-        children: [
-          Expanded(child: _listaMensajes()),
-          SafeArea(
-            top: false,
-            child: Container(
-              padding: const EdgeInsets.fromLTRB(10, 8, 8, 8),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                border: Border(top: BorderSide(color: Color(0xFFE2E7EF))),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _composer,
-                      minLines: 1,
-                      maxLines: 4,
-                      maxLength: 2000,
-                      textCapitalization: TextCapitalization.sentences,
-                      onSubmitted: (_) => _enviar(),
-                      decoration: const InputDecoration(
-                        hintText: 'Escribe un mensaje',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.all(Radius.circular(22)),
-                        ),
-                        contentPadding: EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 10,
-                        ),
-                        counterText: '',
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  IconButton.filled(
-                    tooltip: 'Enviar',
-                    onPressed: _enviando ? null : _enviar,
-                    icon: _enviando
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : const Icon(Icons.send),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
+      body: _cuerpoChat(context),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<bool>(
+      valueListenable: BlogTheme.darkMode,
+      builder: (context, darkMode, _) => Theme(
+        data: BlogTheme.forMode(darkMode),
+        child: Builder(
+          builder: (themeContext) => _vistaChat(themeContext, darkMode),
+        ),
       ),
     );
   }
