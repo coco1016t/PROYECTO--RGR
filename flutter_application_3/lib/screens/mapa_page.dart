@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:url_launcher/link.dart';
 
 class LugarMapa {
   final String nombre;
@@ -231,6 +232,25 @@ class _MapaPageState extends State<MapaPage> {
         icon: const Icon(Icons.add_location_alt_outlined),
         label: const Text('Nueva ubicación'),
       ),
+      bottomNavigationBar: Material(
+        color: Theme.of(context).colorScheme.surface,
+        child: SafeArea(
+          top: false,
+          minimum: const EdgeInsets.symmetric(horizontal: 8),
+          child: Align(
+            alignment: Alignment.centerRight,
+            heightFactor: 1,
+            child: Link(
+              uri: Uri.https('www.openstreetmap.org', '/copyright'),
+              target: LinkTarget.blank,
+              builder: (context, followLink) => TextButton(
+                onPressed: followLink,
+                child: const Text('© OpenStreetMap contributors'),
+              ),
+            ),
+          ),
+        ),
+      ),
       body: FlutterMap(
         options: MapOptions(
           initialCenter: centroQueretaro,
@@ -244,14 +264,6 @@ class _MapaPageState extends State<MapaPage> {
             userAgentPackageName: 'com.example.flutter_application_3',
           ),
           MarkerLayer(markers: markers),
-          RichAttributionWidget(
-            attributions: [
-              TextSourceAttribution(
-                'OpenStreetMap contributors',
-                onTap: () {},
-              ),
-            ],
-          ),
         ],
       ),
     );
