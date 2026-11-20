@@ -4,7 +4,6 @@ import '../models/post_model.dart';
 import '../navigation/user_profile_navigation.dart';
 import '../services/post_service.dart';
 import '../services/sesion_service.dart';
-import '../theme/blog_theme.dart';
 import '../widgets/admin_drawer.dart';
 import '../widgets/blog/blog_aside_panel.dart';
 import '../widgets/blog/blog_topic_filter.dart';
@@ -86,15 +85,6 @@ class _BlogPageState extends State<BlogPage>
       futurePosts = postService.obtenerPosts();
       futureMisPosts = postService.obtenerMisPosts();
     });
-  }
-
-  void cerrarSesion() {
-    SesionService.instance.cerrar();
-    Navigator.pushNamedAndRemoveUntil(
-      context,
-      '/login',
-      (route) => false,
-    );
   }
 
   Future<void> abrirDetalle(PostModel post) async {
@@ -304,8 +294,9 @@ class _BlogPageState extends State<BlogPage>
     );
   }
 
-  Widget _contenidoFeed(BuildContext themeContext) {
-    final screenWidth = MediaQuery.sizeOf(themeContext).width;
+  Widget _contenidoFeed(BuildContext context, {required bool mostrarPestanas}) {
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final scheme = Theme.of(context).colorScheme;
     final showMobileSearch = screenWidth < 900;
     final tabTitle =
         _tabs.index == 0 ? 'Un espacio para compartir' : 'Tus publicaciones';
@@ -332,7 +323,7 @@ class _BlogPageState extends State<BlogPage>
               Text(
                 'COMUNIDAD  /  RGR',
                 style: TextStyle(
-                  color: Theme.of(themeContext).colorScheme.primary,
+                  color: scheme.onSecondaryContainer,
                   fontWeight: FontWeight.w800,
                   letterSpacing: 1.15,
                   fontSize: 10,
@@ -347,7 +338,7 @@ class _BlogPageState extends State<BlogPage>
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: Theme.of(themeContext).colorScheme.onSurface,
+                    color: scheme.onSurface,
                     fontSize: screenWidth < 400 ? 23 : 29,
                     height: 1.15,
                     fontWeight: FontWeight.w800,
@@ -359,10 +350,7 @@ class _BlogPageState extends State<BlogPage>
               Text(
                 tabDescription,
                 style: TextStyle(
-                  color: Theme.of(themeContext)
-                      .colorScheme
-                      .onSurface
-                      .withValues(alpha: .66),
+                  color: scheme.onSurfaceVariant,
                   fontSize: 13,
                   height: 1.4,
                 ),
@@ -370,32 +358,27 @@ class _BlogPageState extends State<BlogPage>
             ],
           ),
         ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: TabBar(
-            controller: _tabs,
-            isScrollable: true,
-            dividerColor: Theme.of(themeContext)
-                .colorScheme
-                .outline
-                .withValues(alpha: .45),
-            indicatorSize: TabBarIndicatorSize.label,
-            labelColor: Theme.of(themeContext).colorScheme.primary,
-            unselectedLabelColor: Theme.of(themeContext)
-                .colorScheme
-                .onSurface
-                .withValues(alpha: .58),
-            labelStyle: const TextStyle(fontWeight: FontWeight.w700),
-            tabs: const [
-              Tab(
-                  icon: Icon(Icons.dynamic_feed_outlined, size: 18),
-                  text: 'Para ti'),
-              Tab(
-                  icon: Icon(Icons.person_outline_rounded, size: 18),
-                  text: 'Mis publicaciones'),
-            ],
+        if (mostrarPestanas)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: TabBar(
+              controller: _tabs,
+              isScrollable: true,
+              dividerColor: scheme.outline.withValues(alpha: .45),
+              indicatorSize: TabBarIndicatorSize.label,
+              labelColor: scheme.onSecondaryContainer,
+              unselectedLabelColor: scheme.onSurfaceVariant,
+              labelStyle: const TextStyle(fontWeight: FontWeight.w700),
+              tabs: const [
+                Tab(
+                    icon: Icon(Icons.dynamic_feed_outlined, size: 18),
+                    text: 'Para ti'),
+                Tab(
+                    icon: Icon(Icons.person_outline_rounded, size: 18),
+                    text: 'Mis publicaciones'),
+              ],
+            ),
           ),
-        ),
         Expanded(
           child: TabBarView(
             controller: _tabs,
@@ -417,85 +400,61 @@ class _BlogPageState extends State<BlogPage>
   Widget build(BuildContext context) {
     final esAdmin = (usuarioActual['tip_usu'] as num? ?? 2).toInt() == 1;
     final screenWidth = MediaQuery.sizeOf(context).width;
-    final mostrarMenuPermanente = screenWidth >= 1120;
+    final mostrarMenuPermanente = !esAdmin && screenWidth >= 1120;
     final mostrarPanelLateral = screenWidth >= 1510;
-    final userMenu = UserDrawer(
-      usuario: usuarioActual,
-      tabActual: _tabs.index,
-      onCambiarTab: (indice) => _tabs.animateTo(indice),
-    );
+    void cambiarPestana(int indice) => _tabs.animateTo(indice);
 
-    return ValueListenableBuilder<bool>(
-      valueListenable: BlogTheme.darkMode,
-      builder: (context, darkMode, _) => Theme(
-        data: BlogTheme.forMode(darkMode),
-        child: Builder(
-          builder: (themeContext) => Scaffold(
-            appBar: BlogTopBar(
-              searchController: _searchController,
-              onSearchChanged: _actualizarConsulta,
-              userName: nombreUsuario,
-              darkMode: darkMode,
-              showSidebar: mostrarMenuPermanente,
-              isAdmin: esAdmin,
-              onLightMode: () => BlogTheme.darkMode.value = false,
-              onDarkMode: () => BlogTheme.darkMode.value = true,
-              onMessages: () => Navigator.pushNamed(context, '/mensajes'),
-              onRefresh: recargarPosts,
-              onLogout: cerrarSesion,
-            ),
-            drawer: esAdmin
-                ? AdminDrawer(usuario: usuarioActual, rutaActual: '/blog')
-                : (mostrarMenuPermanente ? null : userMenu),
-            floatingActionButton: FloatingActionButton.small(
+    return Scaffold(
+      appBar: BlogTopBar(
+        searchController: _searchController,
+        onSearchChanged: _actualizarConsulta,
+        hasDrawer: !mostrarMenuPermanente,
+        onRefresh: recargarPosts,
+      ),
+      drawer: esAdmin
+          ? AdminDrawer(usuario: usuarioActual, rutaActual: '/blog')
+          : (mostrarMenuPermanente ? null : UserDrawer(usuario: usuarioActual)),
+      floatingActionButton: mostrarPanelLateral
+          ? null
+          : FloatingActionButton.small(
               onPressed: nuevaPublicacion,
-              tooltip: 'Nueva publicaci\u00F3n',
-              shape: const RoundedRectangleBorder(
-                borderRadius: BorderRadius.zero,
-              ),
+              tooltip: 'Crear publicación',
               child: const Icon(Icons.add_rounded),
             ),
-            body: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                if (mostrarMenuPermanente)
-                  UserNavigationPanel(
-                    usuario: usuarioActual,
-                    tabActual: _tabs.index,
-                    onCambiarTab: (indice) => _tabs.animateTo(indice),
-                  ),
-                Expanded(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Expanded(
-                        child: Align(
-                          alignment: Alignment.topCenter,
-                          child: ConstrainedBox(
-                            constraints: BoxConstraints(
-                              maxWidth: mostrarPanelLateral ? 1600 : 1250,
-                            ),
-                            child: _contenidoFeed(themeContext),
-                          ),
-                        ),
-                      ),
-                      if (mostrarPanelLateral)
-                        SizedBox(
-                          width: 318,
-                          child: BlogAsidePanel(
-                            postsFuture: futurePosts,
-                            userName: nombreUsuario,
-                            onCreatePost: nuevaPublicacion,
-                            onOpenPost: abrirDetalle,
-                          ),
-                        ),
-                    ],
-                  ),
+      body: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (mostrarMenuPermanente)
+            UserNavigationPanel(
+              usuario: usuarioActual,
+              tabActual: _tabs.index,
+              onCambiarTab: cambiarPestana,
+            ),
+          Expanded(
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: mostrarPanelLateral ? 1600 : 1250,
                 ),
-              ],
+                child: _contenidoFeed(
+                  context,
+                  mostrarPestanas: !mostrarMenuPermanente,
+                ),
+              ),
             ),
           ),
-        ),
+          if (mostrarPanelLateral)
+            SizedBox(
+              width: 318,
+              child: BlogAsidePanel(
+                postsFuture: futurePosts,
+                userName: nombreUsuario,
+                onCreatePost: nuevaPublicacion,
+                onOpenPost: abrirDetalle,
+              ),
+            ),
+        ],
       ),
     );
   }
