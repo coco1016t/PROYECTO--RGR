@@ -6,12 +6,14 @@ class UserDrawer extends StatelessWidget {
   final Map<String, dynamic> usuario;
   final int tabActual;
   final ValueChanged<int> onCambiarTab;
+  final String rutaActual;
 
   const UserDrawer({
     super.key,
     required this.usuario,
     required this.tabActual,
     required this.onCambiarTab,
+    this.rutaActual = '/blog',
   });
 
   @override
@@ -24,6 +26,7 @@ class UserDrawer extends StatelessWidget {
         tabActual: tabActual,
         onCambiarTab: onCambiarTab,
         isDrawer: true,
+        rutaActual: rutaActual,
       ),
     );
   }
@@ -60,6 +63,7 @@ class UserNavigationPanel extends StatelessWidget {
             tabActual: tabActual,
             onCambiarTab: onCambiarTab,
             isDrawer: false,
+            rutaActual: '/blog',
           ),
         ),
       ),
@@ -72,12 +76,14 @@ class _UserNavigationContent extends StatelessWidget {
   final int tabActual;
   final ValueChanged<int> onCambiarTab;
   final bool isDrawer;
+  final String rutaActual;
 
   const _UserNavigationContent({
     required this.usuario,
     required this.tabActual,
     required this.onCambiarTab,
     required this.isDrawer,
+    required this.rutaActual,
   });
 
   String get nombre => usuario['nom_usr']?.toString() ?? 'Usuario';
@@ -169,6 +175,22 @@ class _UserNavigationContent extends StatelessWidget {
             onTap: () {
               _cerrarDrawer(context);
               Navigator.pushNamed(context, '/mensajes');
+            },
+          ),
+          _opcion(
+            context,
+            icono: Icons.account_circle_outlined,
+            titulo: 'Mi perfil',
+            seleccionado: rutaActual == '/profile',
+            onTap: () {
+              _cerrarDrawer(context);
+              if (rutaActual != '/profile') {
+                Navigator.pushNamed(
+                  context,
+                  '/profile',
+                  arguments: usuario,
+                );
+              }
             },
           ),
           const Spacer(),
