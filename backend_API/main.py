@@ -32,6 +32,7 @@ from schemas import (
     UsuarioActualizar,
     UsuarioRespuesta,
     BlogRespuesta,
+    PerfilPublicoRespuesta,
     ComentarioCrear,
     ComentarioRespuesta,
     LoginRequest,
@@ -775,6 +776,32 @@ def _adjuntar_valoraciones(db: Session, posts: list[Blog]) -> list[Blog]:
         p.total_valoraciones = total
 
     return posts
+
+
+@app.get(
+    "/usuarios/{usuario_id}/perfil",
+    response_model=PerfilPublicoRespuesta,
+)
+def obtener_perfil_publico(
+    usuario_id: int,
+    db: Session = Depends(obtener_sesion),
+    _quien: Usuario = Depends(usuario_actual),
+):
+    usuario = db.get(Usuario, usuario_id)
+    if usuario is None:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+    publicaciones = db.scalars(
+        select(Blog)
+        .where(Blog.usr_id == usuario_id)
+        .order_by(Blog.id_blog.desc())
+    ).all()
+
+    return {
+        "id_usr": usuario.id_usr,
+        "nom_usr": usuario.nom_usr,
+        "publicaciones": _adjuntar_valoraciones(db, list(publicaciones)),
+    }
 
 
 @app.get("/blog", response_model=list[BlogRespuesta])
