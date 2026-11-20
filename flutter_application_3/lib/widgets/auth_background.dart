@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 class AuthBackground extends StatelessWidget {
-
   final Widget child;
 
   const AuthBackground({
@@ -11,25 +10,9 @@ class AuthBackground extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-
-    return Container(
-
-      decoration: const BoxDecoration(
-
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-
-          colors: [
-            Color(0xFFE6F6FF),
-            Color(0xFFBFD9FF),
-            Color(0xFFD9D1FF),
-            Color(0xFFE8DFFF),
-          ],
-        ),
-      ),
-
-      child: child,
+    return ColoredBox(
+      color: const Color(0xFFF7F9F8),
+      child: SizedBox.expand(child: child),
     );
   }
 }
