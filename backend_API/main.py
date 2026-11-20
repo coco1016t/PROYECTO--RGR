@@ -1,5 +1,7 @@
 from pathlib import Path
 import hmac
+import logging
+import re
 from uuid import uuid4
 from contextlib import asynccontextmanager
 from fastapi import (
@@ -15,7 +17,7 @@ from fastapi import (
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
-from sqlalchemy import and_, case, func, inspect, or_, select, update
+from sqlalchemy import and_, case, delete, func, inspect, or_, select, update
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from pwdlib import PasswordHash
 from database import Base, engine, obtener_sesion
@@ -52,6 +54,8 @@ password_hash = PasswordHash.recommended()
 UPLOAD_DIR = Path(__file__).resolve().parent / "uploads"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 MAX_IMAGE_SIZE = 10 * 1024 * 1024
+EXTENSIONES_IMAGEN = {".jpg", ".jpeg", ".png", ".webp"}
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -830,36 +834,25 @@ def listar_mis_posts(
     return _adjuntar_valoraciones(db, list(posts))
 
 
-@app.post("/blog", response_model=BlogRespuesta, status_code=201)
-async def crear_blog(
-    titulo: str = Form(..., min_length=2, max_length=150),
-    descripcion: str = Form(..., min_length=1),
-    imagen: UploadFile = File(...),
-    tags: str | None = Form(default=None, max_length=255),
-    db: Session = Depends(obtener_sesion),
-    quien: Usuario = Depends(usuario_actual),
-):
+def _validar_titulo_blog(titulo: str) -> str:
     titulo = titulo.strip()
-    descripcion = descripcion.strip()
     if len(titulo) < 2:
         raise HTTPException(
             status_code=422,
             detail="El título debe tener al menos 2 caracteres",
         )
-    if not descripcion:
-        raise HTTPException(
-            status_code=422,
-            detail="La descripción no puede estar vacía",
-        )
+    return titulo
 
+
+def _guardar_imagen_blog(imagen: UploadFile) -> Path:
     extension = Path(imagen.filename or "").suffix.lower()
-    if extension not in {".jpg", ".jpeg", ".png", ".webp"}:
+    if extension not in EXTENSIONES_IMAGEN:
         raise HTTPException(
             status_code=400,
             detail="Formato de imagen no permitido",
         )
 
-    contenido = await imagen.read(MAX_IMAGE_SIZE + 1)
+    contenido = imagen.file.read(MAX_IMAGE_SIZE + 1)
     if not contenido:
         raise HTTPException(status_code=400, detail="La imagen está vacía")
     if len(contenido) > MAX_IMAGE_SIZE:
@@ -868,16 +861,68 @@ async def crear_blog(
             detail="La imagen supera el límite de 10 MB",
         )
 
-    nombre_archivo = f"{uuid4().hex}{extension}"
-    ruta_archivo = UPLOAD_DIR / nombre_archivo
-    ruta_publica = f"/uploads/{nombre_archivo}"
-    ruta_archivo.write_bytes(contenido)
+    ruta_archivo = UPLOAD_DIR / f"{uuid4().hex}{extension}"
+    try:
+        ruta_archivo.write_bytes(contenido)
+    except OSError as exc:
+        _quitar_imagen_blog(ruta_archivo)
+        raise HTTPException(status_code=500, detail="No se pudo guardar la imagen") from exc
+    return ruta_archivo
+
+
+def _quitar_imagen_blog(ruta: Path | None) -> None:
+    if ruta is not None:
+        try:
+            ruta.unlink(missing_ok=True)
+        except OSError:
+            logger.exception("No se pudo eliminar la imagen de la publicación")
+
+
+def _imagen_exclusiva_del_blog(db: Session, post: Blog) -> Path | None:
+    coincidencia = re.fullmatch(r"/uploads/([a-f0-9]{32}\.(?:jpg|jpeg|png|webp))", post.img or "")
+    if coincidencia is None:
+        return None
+    otro_post = db.scalar(
+        select(Blog.id_blog)
+        .where(Blog.img == post.img, Blog.id_blog != post.id_blog)
+        .limit(1)
+    )
+    return UPLOAD_DIR / coincidencia.group(1) if otro_post is None else None
+
+
+def _blog_propio_bloqueado(db: Session, blog_id: int, quien: Usuario) -> Blog:
+    post = db.get(Blog, blog_id, with_for_update=True)
+    if post is None:
+        raise HTTPException(status_code=404, detail="Publicación no encontrada")
+    if post.usr_id != quien.id_usr:
+        raise HTTPException(status_code=403, detail="Solo el autor puede modificar la publicación")
+    return post
+
+
+@app.post("/blog", response_model=BlogRespuesta, status_code=201)
+def crear_blog(
+    titulo: str = Form(..., min_length=2, max_length=150),
+    descripcion: str = Form(..., min_length=1),
+    imagen: UploadFile = File(...),
+    tags: str | None = Form(default=None, max_length=255),
+    db: Session = Depends(obtener_sesion),
+    quien: Usuario = Depends(usuario_actual),
+):
+    titulo = _validar_titulo_blog(titulo)
+    descripcion = descripcion.strip()
+    if not descripcion:
+        raise HTTPException(
+            status_code=422,
+            detail="La descripción no puede estar vacía",
+        )
+
+    ruta_archivo = _guardar_imagen_blog(imagen)
 
     publicacion = Blog(
         titulo=titulo,
         descripcion=descripcion,
-        img=ruta_publica,
-        tags=tags.strip() if tags and tags.strip() else None,
+        img=f"/uploads/{ruta_archivo.name}",
+        tags=(tags or "").strip() or None,
         usr_id=quien.id_usr,  # el autor sale del token, no del cliente
     )
 
@@ -886,7 +931,7 @@ async def crear_blog(
         db.commit()
     except SQLAlchemyError as exc:
         db.rollback()
-        ruta_archivo.unlink(missing_ok=True)
+        _quitar_imagen_blog(ruta_archivo)
         raise HTTPException(
             status_code=500,
             detail="No se pudo guardar la publicación",
@@ -894,6 +939,7 @@ async def crear_blog(
     db.refresh(publicacion)
 
     return publicacion
+
 
 @app.get("/blog/{blog_id}", response_model=BlogRespuesta)
 def obtener_blog(
@@ -910,6 +956,61 @@ def obtener_blog(
         )
 
     return publicacion
+
+
+@app.put("/blog/{blog_id}", response_model=BlogRespuesta)
+def editar_blog(
+    blog_id: int,
+    titulo: str = Form(..., min_length=2, max_length=150),
+    descripcion: str = Form(default=""),
+    tags: str | None = Form(default=None, max_length=255),
+    imagen: UploadFile | None = File(default=None),
+    db: Session = Depends(obtener_sesion),
+    quien: Usuario = Depends(usuario_actual),
+):
+    post = _blog_propio_bloqueado(db, blog_id, quien)
+    titulo = _validar_titulo_blog(titulo)
+    anterior = _imagen_exclusiva_del_blog(db, post) if imagen is not None else None
+    nueva = _guardar_imagen_blog(imagen) if imagen is not None else None
+
+    post.titulo = titulo
+    post.descripcion = descripcion.strip() or None
+    post.tags = (tags or "").strip() or None
+    if nueva is not None:
+        post.img = f"/uploads/{nueva.name}"
+    try:
+        db.flush()
+        respuesta = BlogRespuesta.model_validate(_adjuntar_valoraciones(db, [post])[0])
+        db.commit()
+    except SQLAlchemyError as exc:
+        db.rollback()
+        _quitar_imagen_blog(nueva)
+        raise HTTPException(status_code=500, detail="No se pudo guardar la publicación") from exc
+
+    _quitar_imagen_blog(anterior)
+    return respuesta
+
+
+@app.delete("/blog/{blog_id}", status_code=204)
+def eliminar_blog(
+    blog_id: int,
+    db: Session = Depends(obtener_sesion),
+    quien: Usuario = Depends(usuario_actual),
+):
+    post = _blog_propio_bloqueado(db, blog_id, quien)
+    imagen = _imagen_exclusiva_del_blog(db, post)
+
+    try:
+        db.execute(delete(Comentario).where(Comentario.blog_id == blog_id))
+        db.execute(delete(Valoracion).where(Valoracion.blog_id == blog_id))
+        db.delete(post)
+        db.commit()
+    except SQLAlchemyError as exc:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="No se pudo eliminar la publicación") from exc
+
+    _quitar_imagen_blog(imagen)
+    return Response(status_code=204)
 
 
 # ---------------------------------------------------------------
