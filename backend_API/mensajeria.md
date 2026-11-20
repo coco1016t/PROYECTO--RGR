@@ -80,4 +80,4 @@ sequenceDiagram
 
 ## Seguridad y límites
 
-Las rutas requieren JWT y verifican la pertenencia al hilo. Un tercero, incluso administrador, recibe el mismo 404 que un hilo inexistente. La lista de contactos solo entrega ID y nombre; excluye a la cuenta actual y la búsqueda filtra localmente la lista completa. Los mensajes se guardan en texto plano en la base y no tienen cifrado de extremo a extremo; el despliegue debe usar HTTPS. Esta versión no aplica rate limit, no permite bloquear/reportar y no ofrece editar/borrar mensajes.
+Las rutas requieren JWT y verifican la pertenencia al hilo. La bandeja muestra únicamente conversaciones abiertas y también incluye las que todavía no tienen mensajes, por ejemplo, al iniciar un chat desde una publicación. La búsqueda de contactos consulta el servidor por nombre con `buscar` (mínimo 2 caracteres) y `limite` (8 por defecto, máximo 20); la lista solo entrega ID y nombre y excluye a la cuenta actual. Los mensajes se guardan en texto plano en la base y no tienen cifrado de extremo a extremo; el despliegue debe usar HTTPS. Esta versión no aplica rate limit, no permite bloquear/reportar y no ofrece editar/borrar mensajes.
