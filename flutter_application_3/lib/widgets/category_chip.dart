@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 class CategoryChip extends StatelessWidget {
-
   final String text;
   final bool selected;
   final VoidCallback onTap;
@@ -15,41 +14,23 @@ class CategoryChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-
+    final scheme = Theme.of(context).colorScheme;
     return GestureDetector(
-
       onTap: onTap,
-
       child: Container(
-
-        padding:
-            const EdgeInsets.symmetric(
+        padding: const EdgeInsets.symmetric(
           horizontal: 16,
           vertical: 9,
         ),
-
         decoration: BoxDecoration(
-
-          color: selected
-              ? const Color(0xFF2196F3)
-              : Colors.grey.shade200,
-
-          borderRadius:
-              BorderRadius.circular(20),
+          color: selected ? scheme.secondaryContainer : scheme.surfaceContainer,
+          borderRadius: BorderRadius.circular(20),
         ),
-
         child: Text(
-
           text,
-
           style: TextStyle(
-
-            color: selected
-                ? Colors.white
-                : Colors.black87,
-
-            fontWeight:
-                FontWeight.w500,
+            color: selected ? scheme.onSecondaryContainer : scheme.onSurface,
+            fontWeight: FontWeight.w500,
           ),
         ),
       ),
