@@ -6,12 +6,11 @@ import '../models/mensaje_model.dart';
 import '../navigation/user_profile_navigation.dart';
 import '../services/mensajeria_service.dart';
 import '../services/sesion_service.dart';
-import '../theme/blog_theme.dart';
 import '../widgets/admin_drawer.dart';
 import '../widgets/mensajeria/chat_header.dart';
 import '../widgets/mensajeria/contactos_panel.dart';
 import '../widgets/mensajeria/text_message_composer.dart';
-import '../widgets/theme_mode_buttons.dart';
+import '../widgets/theme_mode_button.dart';
 
 String _normalizarNombre(String nombre) =>
     nombre.trim().replaceAll(RegExp(r'\s+'), ' ').toLowerCase();
@@ -239,7 +238,8 @@ class _MensajesPageState extends State<MensajesPage> {
     );
   }
 
-  Widget _construirVista(BuildContext context, bool darkMode) {
+  @override
+  Widget build(BuildContext context) {
     final usuario = SesionService.instance.usuario;
     final esAdmin = SesionService.instance.tipoUsuario == 1;
 
@@ -250,11 +250,7 @@ class _MensajesPageState extends State<MensajesPage> {
       appBar: AppBar(
         title: const Text('Mensajes privados'),
         actions: [
-          ThemeModeButtons(
-            darkMode: darkMode,
-            onLightMode: () => BlogTheme.darkMode.value = false,
-            onDarkMode: () => BlogTheme.darkMode.value = true,
-          ),
+          const ThemeModeButton(),
           IconButton(
             tooltip: 'Actualizar bandeja',
             onPressed: _cargando ? null : () => unawaited(_cargarBandeja()),
@@ -294,19 +290,6 @@ class _MensajesPageState extends State<MensajesPage> {
             ],
           );
         },
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return ValueListenableBuilder<bool>(
-      valueListenable: BlogTheme.darkMode,
-      builder: (context, darkMode, _) => Theme(
-        data: BlogTheme.forMode(darkMode),
-        child: Builder(
-          builder: (themeContext) => _construirVista(themeContext, darkMode),
-        ),
       ),
     );
   }
@@ -1107,7 +1090,8 @@ class _ChatPrivadoPageState extends State<ChatPrivadoPage>
     );
   }
 
-  Widget _vistaChat(BuildContext context, bool darkMode) {
+  @override
+  Widget build(BuildContext context) {
     if (widget.embedded) return _cuerpoChat(context);
 
     return Scaffold(
@@ -1122,11 +1106,7 @@ class _ChatPrivadoPageState extends State<ChatPrivadoPage>
           ),
         ),
         actions: [
-          ThemeModeButtons(
-            darkMode: darkMode,
-            onLightMode: () => BlogTheme.darkMode.value = false,
-            onDarkMode: () => BlogTheme.darkMode.value = true,
-          ),
+          const ThemeModeButton(),
           IconButton(
             tooltip: 'Actualizar mensajes',
             onPressed: _consultarNuevos,
@@ -1135,19 +1115,6 @@ class _ChatPrivadoPageState extends State<ChatPrivadoPage>
         ],
       ),
       body: _cuerpoChat(context),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return ValueListenableBuilder<bool>(
-      valueListenable: BlogTheme.darkMode,
-      builder: (context, darkMode, _) => Theme(
-        data: BlogTheme.forMode(darkMode),
-        child: Builder(
-          builder: (themeContext) => _vistaChat(themeContext, darkMode),
-        ),
-      ),
     );
   }
 }
