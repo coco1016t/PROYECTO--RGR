@@ -103,113 +103,131 @@ class _LoginPageState extends State<LoginPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: AuthBackground(
-        child: Center(
-          child: AuthCard(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(
-                  Icons.lock,
-                  size: 65,
-                  color: Color(0xFFC9A227),
-                ),
-                const SizedBox(
-                  height: 15,
-                ),
-                const Text(
-                  'INICIAR SESIÓN',
-                  style: TextStyle(
-                    fontSize: 27,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF08245C),
+        child: SafeArea(
+          child: LayoutBuilder(
+            builder: (context, constraints) => SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                child: Center(
+                  child: AuthCard(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 64,
+                          height: 64,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEEF5F4),
+                            borderRadius: BorderRadius.circular(18),
+                          ),
+                          child: const Icon(
+                            Icons.lock,
+                            size: 36,
+                            color: Color(0xFF527D7B),
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+                        const Text(
+                          'INICIAR SESIÓN',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF243341),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        const Text(
+                          'Bienvenido de nuevo',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Color(0xFF667483),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        CustomTextField(
+                          controller: usuarioController,
+                          label: 'Correo electrónico',
+                          prefixIcon: Icons.person,
+                          keyboardType: TextInputType.emailAddress,
+                        ),
+                        const SizedBox(height: 14),
+                        CustomTextField(
+                          controller: passwordController,
+                          label: 'Contraseña',
+                          prefixIcon: Icons.lock_outline,
+                          obscureText: ocultarPassword,
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              ocultarPassword
+                                  ? Icons.visibility_off_outlined
+                                  : Icons.visibility_outlined,
+                            ),
+                            onPressed: () {
+                              setState(() {
+                                ocultarPassword = !ocultarPassword;
+                              });
+                            },
+                          ),
+                        ),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(
+                            onPressed: () {
+                              Navigator.pushNamed(context, '/forgot-password');
+                            },
+                            style: TextButton.styleFrom(
+                              foregroundColor: const Color(0xFF527D7B),
+                            ),
+                            child: const Text('¿Olvidaste tu contraseña?'),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        PrimaryButton(
+                          text: cargando ? 'VALIDANDO...' : 'INGRESAR',
+                          onPressed: cargando
+                              ? () {}
+                              : () {
+                                  iniciarSesion();
+                                },
+                        ),
+                        const SizedBox(height: 8),
+                        TextButton.icon(
+                          onPressed: () {
+                            Navigator.pushNamed(context, '/mapa');
+                          },
+                          style: TextButton.styleFrom(
+                            foregroundColor: const Color(0xFF527D7B),
+                          ),
+                          icon: const Icon(Icons.map_outlined),
+                          label: const Text('Abrir mapa de lugares'),
+                        ),
+                        const SizedBox(height: 6),
+                        Wrap(
+                          alignment: WrapAlignment.center,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            const Text(
+                              '¿No tienes cuenta?',
+                              style: TextStyle(color: Color(0xFF667483)),
+                            ),
+                            TextButton(
+                              onPressed: () {
+                                Navigator.pushNamed(context, '/register');
+                              },
+                              style: TextButton.styleFrom(
+                                foregroundColor: const Color(0xFF527D7B),
+                              ),
+                              child: const Text('Registrarse'),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-                const SizedBox(
-                  height: 25,
-                ),
-                CustomTextField(
-                  controller: usuarioController,
-                  label: 'Correo electrónico',
-                  prefixIcon: Icons.person,
-                  keyboardType: TextInputType.emailAddress,
-                ),
-                const SizedBox(
-                  height: 15,
-                ),
-                CustomTextField(
-                  controller: passwordController,
-                  label: 'Contraseña',
-                  prefixIcon: Icons.lock_outline,
-                  obscureText: ocultarPassword,
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      ocultarPassword
-                          ? Icons.visibility_off_outlined
-                          : Icons.visibility_outlined,
-                    ),
-                    onPressed: () {
-                      setState(() {
-                        ocultarPassword = !ocultarPassword;
-                      });
-                    },
-                  ),
-                ),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton(
-                    onPressed: () {
-                      Navigator.pushNamed(context, '/forgot-password');
-                    },
-                    child: const Text(
-                      '¿Olvidaste tu contraseña?',
-                    ),
-                  ),
-                ),
-                const SizedBox(
-                  height: 5,
-                ),
-                PrimaryButton(
-                  text: cargando ? 'VALIDANDO...' : 'INGRESAR',
-                  onPressed: cargando
-                      ? () {}
-                      : () {
-                          iniciarSesion();
-                        },
-                ),
-                const SizedBox(
-                  height: 12,
-                ),
-                TextButton.icon(
-                  onPressed: () {
-                    Navigator.pushNamed(context, '/mapa');
-                  },
-                  icon: const Icon(Icons.map_outlined),
-                  label: const Text('Abrir mapa de lugares'),
-                ),
-                const SizedBox(
-                  height: 15,
-                ),
-                Wrap(
-                  alignment: WrapAlignment.center,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    const Text(
-                      '¿No tienes cuenta?',
-                    ),
-                    TextButton(
-                      onPressed: () {
-                        Navigator.pushNamed(
-                          context,
-                          '/register',
-                        );
-                      },
-                      child: const Text(
-                        'Registrarse',
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+              ),
             ),
           ),
         ),
