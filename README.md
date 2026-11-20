@@ -49,13 +49,13 @@ flutter run -d chrome --dart-define=API_BASE_URL=http://127.0.0.1:8000
 
 ## Mensajería interna
 
-Los usuarios autenticados pueden abrir chats privados 1:1 desde **Mensajes** en el blog, desde el menú del administrador o desde **Enviar mensaje** en publicaciones de otros usuarios. Los chats vacíos no aparecen en la bandeja hasta que se envíe el primer mensaje.
+Los usuarios autenticados pueden abrir chats privados 1:1 desde **Mensajes** en el blog, desde el menú del administrador, desde **Enviar mensaje** en publicaciones de otros usuarios o al buscar a una persona para iniciar un chat. La bandeja muestra solo conversaciones iniciadas; los chats vacíos aparecen después de abrirlos.
 
 Rutas protegidas por JWT:
 
 | Método | Ruta | Función |
 |---|---|---|
-| GET | `/mensajes/contactos` | Contactos, solo ID y nombre; excluye a la cuenta actual. |
+| GET | `/mensajes/contactos?buscar=ana&limite=8` | Búsqueda progresiva; requiere al menos 2 caracteres y devuelve hasta 20 resultados con solo ID y nombre. |
 | GET | `/mensajes/conversaciones` | Bandeja, vista previa, fecha y cantidad de mensajes entrantes sin leer. |
 | POST | `/mensajes/conversaciones/{usuario_id}` | Abre o crea un chat 1:1; 201 nuevo, 200 existente. |
 | GET | `/mensajes/conversaciones/{id}/mensajes?limite=50&antes_de_id={id}` | Página inicial o mensajes anteriores, orden estable por ID. |
