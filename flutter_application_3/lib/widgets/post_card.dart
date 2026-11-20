@@ -4,12 +4,6 @@ import '../models/post_model.dart';
 import '../services/post_service.dart';
 import '../services/sesion_service.dart';
 
-const Color _cardBorder = Color(0xFFDCE3E8);
-const Color _cardText = Color(0xFF243341);
-const Color _cardMuted = Color(0xFF667483);
-const Color _cardAccent = Color(0xFF527D7B);
-const Color _cardTint = Color(0xFFEEF5F4);
-
 class PostCard extends StatelessWidget {
   final PostModel post;
   final VoidCallback onTap;
@@ -23,6 +17,12 @@ class PostCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final compact = MediaQuery.sizeOf(context).width < 600;
+    final scheme = Theme.of(context).colorScheme;
+    final cardBorder = scheme.outline.withValues(alpha: .55);
+    final cardText = scheme.onSurface;
+    final cardMuted = scheme.onSurface.withValues(alpha: .68);
+    final cardAccent = scheme.primary;
+    final cardTint = scheme.secondaryContainer;
     final author = post.usuarioId != null &&
             post.usuarioId == SesionService.instance.idUsuario
         ? 'Publicado por ti'
@@ -37,30 +37,28 @@ class PostCard extends StatelessWidget {
         : '${post.promedio.toStringAsFixed(1)} '
             '(${post.totalValoraciones})';
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 18),
-      color: Colors.white,
-      elevation: 0,
-      clipBehavior: Clip.antiAlias,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: const BorderSide(color: _cardBorder),
-      ),
+    return Material(
+      color: scheme.surface,
       child: InkWell(
         onTap: onTap,
-        child: Padding(
-          padding: EdgeInsets.all(compact ? 15 : 22),
+        child: Container(
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: BorderSide(color: cardBorder),
+            ),
+          ),
+          padding: EdgeInsets.all(compact ? 14 : 18),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
-                  const CircleAvatar(
+                  CircleAvatar(
                     radius: 19,
-                    backgroundColor: _cardTint,
+                    backgroundColor: cardTint,
                     child: Icon(
                       Icons.person_outline,
-                      color: _cardAccent,
+                      color: cardAccent,
                       size: 21,
                     ),
                   ),
@@ -70,8 +68,8 @@ class PostCard extends StatelessWidget {
                       author,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: _cardText,
+                      style: TextStyle(
+                        color: cardText,
                         fontWeight: FontWeight.w600,
                         fontSize: 14,
                       ),
@@ -88,8 +86,8 @@ class PostCard extends StatelessWidget {
                     final label = tag.startsWith('#') ? tag : '#$tag';
                     return DecoratedBox(
                       decoration: BoxDecoration(
-                        color: _cardTint,
-                        borderRadius: BorderRadius.circular(14),
+                        color: cardTint,
+                        borderRadius: BorderRadius.zero,
                       ),
                       child: Padding(
                         padding: const EdgeInsets.symmetric(
@@ -98,8 +96,8 @@ class PostCard extends StatelessWidget {
                         ),
                         child: Text(
                           label,
-                          style: const TextStyle(
-                            color: _cardAccent,
+                          style: TextStyle(
+                            color: cardAccent,
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
                           ),
@@ -115,7 +113,7 @@ class PostCard extends StatelessWidget {
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  color: _cardText,
+                  color: cardText,
                   fontSize: compact ? 20 : 23,
                   height: 1.25,
                   fontWeight: FontWeight.w700,
@@ -126,8 +124,8 @@ class PostCard extends StatelessWidget {
                 post.descripcion,
                 maxLines: 4,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: _cardMuted,
+                style: TextStyle(
+                  color: cardMuted,
                   fontSize: 14,
                   height: 1.5,
                 ),
@@ -139,33 +137,30 @@ class PostCard extends StatelessWidget {
                     final imageHeight = (constraints.maxWidth * 9 / 16)
                         .clamp(140.0, 240.0)
                         .toDouble();
-                    return ClipRRect(
-                      borderRadius: BorderRadius.circular(11),
-                      child: Image.network(
-                        PostService.urlImagen(post.imagen).toString(),
-                        width: double.infinity,
-                        height: imageHeight,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Container(
-                            width: double.infinity,
-                            height: imageHeight,
-                            color: _cardTint,
-                            alignment: Alignment.center,
-                            child: const Icon(
-                              Icons.image_not_supported_outlined,
-                              color: _cardMuted,
-                              size: 28,
-                            ),
-                          );
-                        },
-                      ),
+                    return Image.network(
+                      PostService.urlImagen(post.imagen).toString(),
+                      width: double.infinity,
+                      height: imageHeight,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          width: double.infinity,
+                          height: imageHeight,
+                          color: cardTint,
+                          alignment: Alignment.center,
+                          child: Icon(
+                            Icons.image_not_supported_outlined,
+                            color: cardMuted,
+                            size: 28,
+                          ),
+                        );
+                      },
                     );
                   },
                 ),
               ],
               const SizedBox(height: 17),
-              const Divider(height: 1, color: _cardBorder),
+              Divider(height: 1, color: cardBorder),
               const SizedBox(height: 12),
               Wrap(
                 spacing: 16,
@@ -180,24 +175,23 @@ class PostCard extends StatelessWidget {
                       const SizedBox(width: 5),
                       Text(
                         rating,
-                        style: const TextStyle(
-                          color: _cardText,
+                        style: TextStyle(
+                          color: cardText,
                           fontWeight: FontWeight.w600,
                           fontSize: 13,
                         ),
                       ),
                     ],
                   ),
-                  const Row(
+                  Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.article_outlined,
-                          size: 18, color: _cardAccent),
+                      Icon(Icons.article_outlined, size: 18, color: cardAccent),
                       SizedBox(width: 6),
                       Text(
                         'Leer publicación',
                         style: TextStyle(
-                          color: _cardAccent,
+                          color: cardAccent,
                           fontWeight: FontWeight.w600,
                           fontSize: 13,
                         ),
