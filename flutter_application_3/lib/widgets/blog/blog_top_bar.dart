@@ -1,33 +1,19 @@
 import 'package:flutter/material.dart';
 
-import '../theme_mode_buttons.dart';
+import '../theme_mode_button.dart';
 
 class BlogTopBar extends StatelessWidget implements PreferredSizeWidget {
   final TextEditingController searchController;
   final ValueChanged<String> onSearchChanged;
-  final String userName;
-  final bool darkMode;
-  final bool showSidebar;
-  final bool isAdmin;
-  final VoidCallback onLightMode;
-  final VoidCallback onDarkMode;
-  final VoidCallback onMessages;
+  final bool hasDrawer;
   final VoidCallback onRefresh;
-  final VoidCallback onLogout;
 
   const BlogTopBar({
     super.key,
     required this.searchController,
     required this.onSearchChanged,
-    required this.userName,
-    required this.darkMode,
-    required this.showSidebar,
-    required this.isAdmin,
-    required this.onLightMode,
-    required this.onDarkMode,
-    required this.onMessages,
+    required this.hasDrawer,
     required this.onRefresh,
-    required this.onLogout,
   });
 
   @override
@@ -36,13 +22,12 @@ class BlogTopBar extends StatelessWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
-    final showDirectMessages = width >= 440;
     final showTopSearch = width >= 900;
     final scheme = Theme.of(context).colorScheme;
 
     return AppBar(
       toolbarHeight: 68,
-      automaticallyImplyLeading: !showSidebar || isAdmin,
+      automaticallyImplyLeading: hasDrawer,
       titleSpacing: 12,
       title: Row(
         children: [
@@ -59,7 +44,14 @@ class BlogTopBar extends StatelessWidget implements PreferredSizeWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('RGR', style: TextStyle(letterSpacing: 1.1)),
+              const Text(
+                'RGR',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.1,
+                ),
+              ),
               Text(
                 'Comunidad',
                 style: TextStyle(
@@ -88,56 +80,11 @@ class BlogTopBar extends StatelessWidget implements PreferredSizeWidget {
         ],
       ),
       actions: [
-        if (showDirectMessages)
-          IconButton(
-            tooltip: 'Mensajes',
-            onPressed: onMessages,
-            icon: const Icon(Icons.chat_bubble_outline_rounded),
-          ),
-        ThemeModeButtons(
-          darkMode: darkMode,
-          onLightMode: onLightMode,
-          onDarkMode: onDarkMode,
-        ),
-        PopupMenuButton<String>(
-          tooltip: 'Más opciones',
-          onSelected: (value) {
-            switch (value) {
-              case 'messages':
-                onMessages();
-              case 'refresh':
-                onRefresh();
-              case 'logout':
-                onLogout();
-            }
-          },
-          itemBuilder: (context) => [
-            if (!showDirectMessages)
-              const PopupMenuItem(
-                value: 'messages',
-                child: ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: Icon(Icons.chat_bubble_outline_rounded),
-                  title: Text('Mensajes'),
-                ),
-              ),
-            const PopupMenuItem(
-              value: 'refresh',
-              child: ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: Icon(Icons.refresh_rounded),
-                title: Text('Actualizar'),
-              ),
-            ),
-            const PopupMenuItem(
-              value: 'logout',
-              child: ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: Icon(Icons.logout_rounded),
-                title: Text('Cerrar sesi\u00F3n'),
-              ),
-            ),
-          ],
+        const ThemeModeButton(),
+        IconButton(
+          tooltip: 'Actualizar publicaciones',
+          onPressed: onRefresh,
+          icon: const Icon(Icons.refresh_rounded),
         ),
         const SizedBox(width: 8),
       ],
@@ -175,6 +122,9 @@ class BlogSearchField extends StatelessWidget {
       style: TextStyle(color: scheme.onSurface, fontSize: 14),
       decoration: InputDecoration(
         hintText: 'Buscar publicaciones o temas',
+        fillColor: scheme.surfaceContainerLow,
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
         prefixIcon: const Icon(Icons.search_rounded),
         suffixIcon: controller.text.isEmpty
             ? null
