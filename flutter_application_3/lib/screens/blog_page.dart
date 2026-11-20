@@ -3,17 +3,14 @@ import 'package:flutter/material.dart';
 import '../models/post_model.dart';
 import '../services/post_service.dart';
 import '../services/sesion_service.dart';
+import '../theme/blog_theme.dart';
 import '../widgets/admin_drawer.dart';
+import '../widgets/blog/blog_aside_panel.dart';
+import '../widgets/blog/blog_topic_filter.dart';
+import '../widgets/blog/blog_top_bar.dart';
 import '../widgets/post_card.dart';
 import '../widgets/user_drawer.dart';
 import 'post_detail_page.dart';
-
-const Color _blogBackground = Color(0xFFF7F9F8);
-const Color _blogSurface = Color(0xFFFFFFFF);
-const Color _blogText = Color(0xFF243341);
-const Color _blogMuted = Color(0xFF667483);
-const Color _blogAccent = Color(0xFF527D7B);
-const Color _blogTint = Color(0xFFEEF5F4);
 
 class BlogPage extends StatefulWidget {
   const BlogPage({super.key});
@@ -28,7 +25,10 @@ class _BlogPageState extends State<BlogPage>
   late final TabController _tabs;
   late Future<List<PostModel>> futurePosts;
   late Future<List<PostModel>> futureMisPosts;
+  late final TextEditingController _searchController = TextEditingController();
   String nombreUsuario = 'Usuario';
+  String _consulta = '';
+  String? _temaSeleccionado;
   Map<String, dynamic> usuarioActual = {
     'nom_usr': 'Usuario',
     'mail': '',
@@ -70,6 +70,7 @@ class _BlogPageState extends State<BlogPage>
   @override
   void dispose() {
     _tabs.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -115,9 +116,11 @@ class _BlogPageState extends State<BlogPage>
     return FutureBuilder<List<PostModel>>(
       future: futuro,
       builder: (context, snapshot) {
+        final scheme = Theme.of(context).colorScheme;
+
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(
-            child: CircularProgressIndicator(color: _blogAccent),
+            child: CircularProgressIndicator(),
           );
         }
 
@@ -128,25 +131,25 @@ class _BlogPageState extends State<BlogPage>
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.cloud_off, size: 45, color: _blogMuted),
+                  Icon(
+                    Icons.cloud_off_outlined,
+                    size: 45,
+                    color: scheme.onSurface.withValues(alpha: .55),
+                  ),
                   const SizedBox(height: 12),
                   const Text(
                     'No fue posible cargar el blog.',
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: _blogText),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     '${snapshot.error}'.replaceFirst('Exception: ', ''),
                     textAlign: TextAlign.center,
-                    style: const TextStyle(color: _blogMuted),
+                    style: TextStyle(
+                        color: scheme.onSurface.withValues(alpha: .65)),
                   ),
                   const SizedBox(height: 12),
                   ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _blogAccent,
-                      foregroundColor: Colors.white,
-                    ),
                     onPressed: recargarPosts,
                     child: const Text('Reintentar'),
                   ),
@@ -157,101 +160,224 @@ class _BlogPageState extends State<BlogPage>
         }
 
         final posts = snapshot.data ?? <PostModel>[];
+        final topics = _temas(posts);
+        final filteredPosts = posts.where(_coincideConFiltros).toList();
 
-        if (posts.isEmpty) {
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Text(
-                textoVacio,
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: _blogMuted),
+        return CustomScrollView(
+          slivers: [
+            SliverToBoxAdapter(
+              child: BlogTopicFilter(
+                topics: topics,
+                selectedTopic: _temaSeleccionado,
+                onSelected: (topic) {
+                  setState(() => _temaSeleccionado = topic);
+                },
               ),
             ),
-          );
-        }
-
-        return ListView(
-          padding: EdgeInsets.fromLTRB(16, 12, 16, 96),
-          children: posts
-              .map(
-                (post) => PostCard(
-                  post: post,
-                  onTap: () => abrirDetalle(post),
+            if (filteredPosts.isEmpty)
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: _estadoVacio(
+                  context,
+                  posts.isEmpty
+                      ? textoVacio
+                      : 'No encontramos publicaciones\ncon esos filtros.',
                 ),
               )
-              .toList(),
+            else
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(20, 5, 20, 96),
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      final post = filteredPosts[index];
+                      return PostCard(
+                        post: post,
+                        onTap: () => abrirDetalle(post),
+                      );
+                    },
+                    childCount: filteredPosts.length,
+                  ),
+                ),
+              ),
+          ],
         );
       },
     );
   }
 
-  Widget _contenidoFeed() {
-    final screenWidth = MediaQuery.sizeOf(context).width;
-    final horizontalPadding = screenWidth >= 960 ? 24.0 : 18.0;
-    final titleSize = screenWidth < 360 ? 22.0 : 27.0;
+  List<String> _temas(List<PostModel> posts) {
+    final temas = <String, String>{};
+    for (final post in posts) {
+      for (final tag in post.tags.split(',')) {
+        final etiqueta = tag.trim().replaceFirst(RegExp(r'^#'), '');
+        if (etiqueta.isEmpty) continue;
+        temas.putIfAbsent(_claveTema(etiqueta), () => _formatearTema(etiqueta));
+      }
+    }
+    final resultado = temas.values.toList()
+      ..sort((a, b) => _claveTema(a).compareTo(_claveTema(b)));
+    return resultado.take(10).toList();
+  }
+
+  String _claveTema(String tema) {
+    return tema
+        .trim()
+        .toLowerCase()
+        .replaceAll('á', 'a')
+        .replaceAll('é', 'e')
+        .replaceAll('í', 'i')
+        .replaceAll('ó', 'o')
+        .replaceAll('ú', 'u')
+        .replaceAll('ü', 'u');
+  }
+
+  String _formatearTema(String tema) {
+    return tema
+        .trim()
+        .split(RegExp(r'\s+'))
+        .map((palabra) => palabra.isEmpty
+            ? palabra
+            : '${palabra[0].toUpperCase()}${palabra.substring(1).toLowerCase()}')
+        .join(' ');
+  }
+
+  bool _coincideConFiltros(PostModel post) {
+    final texto = _consulta;
+    if (texto.isNotEmpty) {
+      final contenido =
+          '${post.titulo} ${post.descripcion} ${post.autor} ${post.tags}'
+              .toLowerCase();
+      if (!contenido.contains(texto)) return false;
+    }
+
+    final tema = _temaSeleccionado;
+    if (tema == null) return true;
+    return post.tags
+        .split(',')
+        .map((tag) => _claveTema(tag.replaceFirst(RegExp(r'^#'), '')))
+        .contains(_claveTema(tema));
+  }
+
+  Widget _estadoVacio(BuildContext context, String mensaje) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.forum_outlined,
+              size: 38,
+              color: scheme.primary.withValues(alpha: .8),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              mensaje,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: scheme.onSurface.withValues(alpha: .68),
+                height: 1.45,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _contenidoFeed(BuildContext themeContext) {
+    final screenWidth = MediaQuery.sizeOf(themeContext).width;
+    final showMobileSearch = screenWidth < 900;
+    final tabTitle =
+        _tabs.index == 0 ? 'Un espacio para compartir' : 'Tus publicaciones';
+    final tabDescription = _tabs.index == 0
+        ? 'Ideas, historias y conversaciones de la comunidad.'
+        : 'Todo lo que has publicado, reunido en un solo lugar.';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Padding(
-          padding: EdgeInsets.fromLTRB(
-            horizontalPadding,
-            22,
-            horizontalPadding,
-            14,
+        if (showMobileSearch)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+            child: BlogSearchField(
+              controller: _searchController,
+              onChanged: _actualizarConsulta,
+            ),
           ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(24, 25, 24, 17),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Explora la comunidad',
+                'COMUNIDAD  /  RGR',
                 style: TextStyle(
-                  color: _blogText,
-                  fontSize: titleSize,
-                  height: 1.2,
-                  fontWeight: FontWeight.w700,
+                  color: Theme.of(themeContext).colorScheme.primary,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.15,
+                  fontSize: 10,
                 ),
               ),
-              const SizedBox(height: 5),
-              const Text(
-                'Ideas, historias y conversaciones.',
-                style: TextStyle(color: _blogMuted, fontSize: 14),
+              const SizedBox(height: 9),
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 180),
+                child: Text(
+                  tabTitle,
+                  key: ValueKey(_tabs.index),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Theme.of(themeContext).colorScheme.onSurface,
+                    fontSize: screenWidth < 400 ? 23 : 29,
+                    height: 1.15,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -.6,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 7),
+              Text(
+                tabDescription,
+                style: TextStyle(
+                  color: Theme.of(themeContext)
+                      .colorScheme
+                      .onSurface
+                      .withValues(alpha: .66),
+                  fontSize: 13,
+                  height: 1.4,
+                ),
               ),
             ],
           ),
         ),
         Padding(
-          padding:
-              EdgeInsets.fromLTRB(horizontalPadding, 0, horizontalPadding, 10),
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: _blogTint,
-                borderRadius: BorderRadius.circular(24),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(4),
-                child: TabBar(
-                  controller: _tabs,
-                  isScrollable: true,
-                  dividerColor: Colors.transparent,
-                  indicatorSize: TabBarIndicatorSize.tab,
-                  indicator: BoxDecoration(
-                    color: _blogSurface,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  labelColor: _blogAccent,
-                  unselectedLabelColor: _blogMuted,
-                  labelStyle: const TextStyle(fontWeight: FontWeight.w600),
-                  tabs: const [
-                    Tab(text: 'Todos'),
-                    Tab(text: 'Mis posts'),
-                  ],
-                ),
-              ),
-            ),
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: TabBar(
+            controller: _tabs,
+            isScrollable: true,
+            dividerColor: Theme.of(themeContext)
+                .colorScheme
+                .outline
+                .withValues(alpha: .45),
+            indicatorSize: TabBarIndicatorSize.label,
+            labelColor: Theme.of(themeContext).colorScheme.primary,
+            unselectedLabelColor: Theme.of(themeContext)
+                .colorScheme
+                .onSurface
+                .withValues(alpha: .58),
+            labelStyle: const TextStyle(fontWeight: FontWeight.w700),
+            tabs: const [
+              Tab(
+                  icon: Icon(Icons.dynamic_feed_outlined, size: 18),
+                  text: 'Para ti'),
+              Tab(
+                  icon: Icon(Icons.person_outline_rounded, size: 18),
+                  text: 'Mis publicaciones'),
+            ],
           ),
         ),
         Expanded(
@@ -267,100 +393,93 @@ class _BlogPageState extends State<BlogPage>
     );
   }
 
+  void _actualizarConsulta(String value) {
+    setState(() => _consulta = value.trim().toLowerCase());
+  }
+
   @override
   Widget build(BuildContext context) {
-    final bool esAdmin = (usuarioActual['tip_usu'] as num? ?? 2).toInt() == 1;
+    final esAdmin = (usuarioActual['tip_usu'] as num? ?? 2).toInt() == 1;
     final screenWidth = MediaQuery.sizeOf(context).width;
-    final mostrarMenuPermanente = !esAdmin && screenWidth >= 960;
-    final narrowActions = screenWidth < 400;
+    final mostrarMenuPermanente = screenWidth >= 1120;
+    final mostrarPanelLateral = screenWidth >= 1510;
     final userMenu = UserDrawer(
       usuario: usuarioActual,
       tabActual: _tabs.index,
       onCambiarTab: (indice) => _tabs.animateTo(indice),
     );
 
-    return Scaffold(
-      backgroundColor: _blogBackground,
-      appBar: AppBar(
-        automaticallyImplyLeading: !mostrarMenuPermanente,
-        toolbarHeight: 64,
-        titleSpacing: narrowActions ? 8 : 16,
-        backgroundColor: _blogSurface,
-        foregroundColor: _blogText,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'Mi Blog',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+    return ValueListenableBuilder<bool>(
+      valueListenable: BlogTheme.darkMode,
+      builder: (context, darkMode, _) => Theme(
+        data: BlogTheme.forMode(darkMode),
+        child: Builder(
+          builder: (themeContext) => Scaffold(
+            appBar: BlogTopBar(
+              searchController: _searchController,
+              onSearchChanged: _actualizarConsulta,
+              userName: nombreUsuario,
+              darkMode: darkMode,
+              showSidebar: mostrarMenuPermanente,
+              isAdmin: esAdmin,
+              onLightMode: () => BlogTheme.darkMode.value = false,
+              onDarkMode: () => BlogTheme.darkMode.value = true,
+              onMessages: () => Navigator.pushNamed(context, '/mensajes'),
+              onRefresh: recargarPosts,
+              onLogout: cerrarSesion,
             ),
-            Text(
-              'Bienvenido, $nombreUsuario',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 12, color: _blogMuted),
+            drawer: esAdmin
+                ? AdminDrawer(usuario: usuarioActual, rutaActual: '/blog')
+                : (mostrarMenuPermanente ? null : userMenu),
+            floatingActionButton: FloatingActionButton.small(
+              onPressed: nuevaPublicacion,
+              tooltip: 'Nueva publicaci\u00F3n',
+              shape: const RoundedRectangleBorder(
+                borderRadius: BorderRadius.zero,
+              ),
+              child: const Icon(Icons.add_rounded),
             ),
-          ],
+            body: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (mostrarMenuPermanente)
+                  UserNavigationPanel(
+                    usuario: usuarioActual,
+                    tabActual: _tabs.index,
+                    onCambiarTab: (indice) => _tabs.animateTo(indice),
+                  ),
+                Expanded(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(
+                        child: Align(
+                          alignment: Alignment.topCenter,
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(
+                              maxWidth: mostrarPanelLateral ? 1600 : 1250,
+                            ),
+                            child: _contenidoFeed(themeContext),
+                          ),
+                        ),
+                      ),
+                      if (mostrarPanelLateral)
+                        SizedBox(
+                          width: 318,
+                          child: BlogAsidePanel(
+                            postsFuture: futurePosts,
+                            userName: nombreUsuario,
+                            onCreatePost: nuevaPublicacion,
+                            onOpenPost: abrirDetalle,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
-        actions: [
-          IconButton(
-            constraints: BoxConstraints.tightFor(
-              width: narrowActions ? 40 : 48,
-              height: 48,
-            ),
-            padding: EdgeInsets.zero,
-            tooltip: 'Mensajes privados',
-            icon: const Icon(Icons.forum_outlined),
-            onPressed: () => Navigator.pushNamed(context, '/mensajes'),
-          ),
-          IconButton(
-            constraints: BoxConstraints.tightFor(
-              width: narrowActions ? 40 : 48,
-              height: 48,
-            ),
-            padding: EdgeInsets.zero,
-            tooltip: 'Actualizar',
-            icon: const Icon(Icons.refresh),
-            onPressed: recargarPosts,
-          ),
-          IconButton(
-            constraints: BoxConstraints.tightFor(
-              width: narrowActions ? 40 : 48,
-              height: 48,
-            ),
-            padding: EdgeInsets.zero,
-            tooltip: 'Cerrar sesión',
-            icon: const Icon(Icons.logout),
-            onPressed: cerrarSesion,
-          ),
-        ],
-      ),
-      drawer: esAdmin
-          ? AdminDrawer(usuario: usuarioActual, rutaActual: '/blog')
-          : (mostrarMenuPermanente ? null : userMenu),
-      floatingActionButton: FloatingActionButton.small(
-        onPressed: nuevaPublicacion,
-        tooltip: 'Nueva publicación',
-        backgroundColor: _blogAccent,
-        foregroundColor: Colors.white,
-        child: const Icon(Icons.add),
-      ),
-      body: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (mostrarMenuPermanente)
-            UserNavigationPanel(
-              usuario: usuarioActual,
-              tabActual: _tabs.index,
-              onCambiarTab: (indice) => _tabs.animateTo(indice),
-            ),
-          Expanded(child: _contenidoFeed()),
-        ],
       ),
     );
   }
