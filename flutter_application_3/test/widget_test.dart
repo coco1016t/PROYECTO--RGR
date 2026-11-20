@@ -14,6 +14,7 @@ import 'package:flutter_application_3/main.dart';
 import 'package:flutter_application_3/screens/forgot_password_page.dart';
 import 'package:flutter_application_3/screens/users_page.dart';
 import 'package:flutter_application_3/theme/app_theme.dart';
+import 'package:flutter_application_3/widgets/post_card.dart';
 
 void main() {
   testWidgets('login page fits on a narrow screen',
@@ -87,8 +88,8 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  for (final width in [390.0, 1280.0, 1520.0]) {
-    testWidgets('blog has a single entry for each action at width $width',
+  for (final width in [390.0, 1280.0, 1920.0]) {
+    testWidgets('blog fills the available width with one create action at $width',
         (tester) async {
       tester.view.physicalSize = Size(width, 800);
       tester.view.devicePixelRatio = 1;
@@ -97,6 +98,11 @@ void main() {
 
       await http.runWithClient(() async {
         await abrirRuta(tester, '/blog');
+
+        final publicacion = find.byType(PostCard);
+        expect(publicacion, findsOneWidget);
+        expect(tester.getTopRight(publicacion).dx, width - 20);
+        expect(find.text('Destacadas'), findsNothing);
 
         expect(find.text('Mis publicaciones'), findsOneWidget);
         await tester.tap(find.text('Mis publicaciones'));
@@ -116,17 +122,17 @@ void main() {
           await tester.pumpAndSettle();
         }
 
-        final crear = width < 1510
-            ? find.byTooltip('Crear publicación')
-            : find.text('Crear publicación');
+        final crear = find.byTooltip('Crear publicación');
+        final botonFlotante = find.byType(FloatingActionButton);
         expect(crear, findsOneWidget);
-        expect(find.byType(FloatingActionButton),
-            width < 1510 ? findsOneWidget : findsNothing);
+        expect(botonFlotante, findsOneWidget);
+        expect(tester.widget<FloatingActionButton>(botonFlotante).mini, isTrue);
         await tester.tap(crear);
         await tester.pumpAndSettle();
         expect(find.text('Nueva publicación'), findsOneWidget);
         expect(tester.takeException(), isNull);
-      }, () => MockClient((_) async => http.Response('[]', 200)));
+      }, () => MockClient((_) async =>
+          http.Response('[{"id_blog":1,"titulo":"Ejemplo"}]', 200)));
     });
   }
 
