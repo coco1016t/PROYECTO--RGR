@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../models/user_model.dart';
 import '../services/user_service.dart';
-import '../services/sesion_service.dart';
 import '../widgets/admin_drawer.dart';
+import '../widgets/theme_mode_button.dart';
 
 class UsersPage extends StatefulWidget {
   const UsersPage({super.key});
@@ -101,6 +101,7 @@ class _UsersPageState extends State<UsersPage> {
               content: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
+                  spacing: 12,
                   children: [
                     TextField(
                       controller: nombreController,
@@ -161,7 +162,7 @@ class _UsersPageState extends State<UsersPage> {
                       : () => Navigator.pop(dialogContext, false),
                   child: const Text('Cancelar'),
                 ),
-                ElevatedButton(
+                FilledButton(
                   onPressed: guardando
                       ? null
                       : () async {
@@ -287,7 +288,11 @@ class _UsersPageState extends State<UsersPage> {
             onPressed: () => Navigator.pop(dialogContext, false),
             child: const Text('Cancelar'),
           ),
-          ElevatedButton(
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(dialogContext).colorScheme.error,
+              foregroundColor: Theme.of(dialogContext).colorScheme.onError,
+            ),
             onPressed: () => Navigator.pop(dialogContext, true),
             child: const Text('Eliminar'),
           ),
@@ -333,28 +338,18 @@ class _UsersPageState extends State<UsersPage> {
           ],
         ),
         actions: [
+          const ThemeModeButton(),
           IconButton(
             onPressed: recargarUsuarios,
             icon: const Icon(Icons.refresh),
             tooltip: 'Actualizar lista',
-          ),
-          TextButton.icon(
-            onPressed: () {
-              SesionService.instance.cerrar();
-              Navigator.pushNamedAndRemoveUntil(
-                context,
-                '/login',
-                (route) => false,
-              );
-            },
-            icon: const Icon(Icons.logout),
-            label: const Text('Cerrar sesión'),
           ),
           const SizedBox(width: 8),
         ],
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => mostrarFormulario(),
+        tooltip: 'Nuevo usuario',
         child: const Icon(Icons.add),
       ),
       body: FutureBuilder<List<UserModel>>(
