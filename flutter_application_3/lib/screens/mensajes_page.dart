@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../models/mensaje_model.dart';
+import '../navigation/user_profile_navigation.dart';
 import '../services/mensajeria_service.dart';
 import '../services/sesion_service.dart';
 import '../theme/blog_theme.dart';
@@ -1083,6 +1084,7 @@ class _ChatPrivadoPageState extends State<ChatPrivadoPage>
           if (widget.embedded)
             ChatHeader(
               contactName: widget.nombreContacto,
+              onOpenProfile: _abrirPerfilContacto,
             ),
           Expanded(child: _listaMensajes()),
           TextMessageComposer(
@@ -1095,15 +1097,29 @@ class _ChatPrivadoPageState extends State<ChatPrivadoPage>
     );
   }
 
+  void _abrirPerfilContacto() {
+    unawaited(
+      abrirPerfilUsuario(
+        context,
+        userId: widget.contacto.id,
+        userName: widget.nombreContacto,
+      ),
+    );
+  }
+
   Widget _vistaChat(BuildContext context, bool darkMode) {
     if (widget.embedded) return _cuerpoChat(context);
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          widget.nombreContacto,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
+        title: InkWell(
+          onTap: _abrirPerfilContacto,
+          mouseCursor: SystemMouseCursors.click,
+          child: Text(
+            widget.nombreContacto,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
         ),
         actions: [
           ThemeModeButtons(
