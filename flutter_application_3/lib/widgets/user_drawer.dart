@@ -93,108 +93,125 @@ class _UserNavigationContent extends StatelessWidget {
     return SafeArea(
       child: Column(
         children: [
-          if (isDrawer)
-            UserAccountsDrawerHeader(
-              margin: EdgeInsets.zero,
-              decoration: BoxDecoration(color: scheme.primary),
-              currentAccountPicture: CircleAvatar(
-                backgroundColor: scheme.surface,
-                child: Icon(
-                  Icons.person_outline_rounded,
-                  color: scheme.primary,
-                  size: 30,
-                ),
-              ),
-              accountName:
-                  Text(nombre, style: TextStyle(color: scheme.onPrimary)),
-              accountEmail:
-                  Text(correo, style: TextStyle(color: scheme.onPrimary)),
-            )
-          else
-            Padding(
-              padding: const EdgeInsets.fromLTRB(18, 24, 16, 26),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    backgroundColor: scheme.secondaryContainer,
-                    child: Icon(
-                      Icons.person_outline_rounded,
-                      color: scheme.primary,
+          Expanded(
+            child: ListView(
+              padding: EdgeInsets.zero,
+              children: [
+                if (isDrawer)
+                  UserAccountsDrawerHeader(
+                    margin: EdgeInsets.zero,
+                    decoration: BoxDecoration(color: scheme.primary),
+                    currentAccountPicture: CircleAvatar(
+                      backgroundColor: scheme.surface,
+                      child: Icon(
+                        Icons.person_outline_rounded,
+                        color: scheme.primary,
+                        size: 30,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    accountName:
+                        Text(nombre, style: TextStyle(color: scheme.onPrimary)),
+                    accountEmail:
+                        Text(correo, style: TextStyle(color: scheme.onPrimary)),
+                  )
+                else
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(18, 24, 16, 26),
+                    child: Row(
                       children: [
-                        Text(
-                          nombre,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: scheme.onSurface,
-                            fontWeight: FontWeight.w700,
+                        CircleAvatar(
+                          backgroundColor: scheme.secondaryContainer,
+                          child: Icon(
+                            Icons.person_outline_rounded,
+                            color: scheme.primary,
                           ),
                         ),
-                        if (correo.isNotEmpty)
-                          Text(
-                            correo,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: scheme.onSurface.withValues(alpha: .62),
-                              fontSize: 12,
-                            ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                nombre,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: scheme.onSurface,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              if (correo.isNotEmpty)
+                                Text(
+                                  correo,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color:
+                                        scheme.onSurface.withValues(alpha: .62),
+                                    fontSize: 12,
+                                  ),
+                                ),
+                            ],
                           ),
+                        ),
                       ],
                     ),
                   ),
+                if (onCambiarTab != null) ...[
+                  _opcion(
+                    context,
+                    icono: Icons.dynamic_feed_outlined,
+                    titulo: 'Inicio',
+                    seleccionado: tabActual == 0,
+                    onTap: () => _cambiarPestana(context, 0),
+                  ),
+                  _opcion(
+                    context,
+                    icono: Icons.article_outlined,
+                    titulo: 'Mis publicaciones',
+                    seleccionado: tabActual == 1,
+                    onTap: () => _cambiarPestana(context, 1),
+                  ),
                 ],
-              ),
-            ),
-          if (onCambiarTab != null) ...[
-            _opcion(
-              context,
-              icono: Icons.dynamic_feed_outlined,
-              titulo: 'Inicio',
-              seleccionado: tabActual == 0,
-              onTap: () => _cambiarPestana(context, 0),
-            ),
-            _opcion(
-              context,
-              icono: Icons.article_outlined,
-              titulo: 'Mis publicaciones',
-              seleccionado: tabActual == 1,
-              onTap: () => _cambiarPestana(context, 1),
-            ),
-          ],
-          _opcion(
-            context,
-            icono: Icons.forum_outlined,
-            titulo: 'Mensajes',
-            seleccionado: false,
-            onTap: () {
-              _cerrarDrawer(context);
-              Navigator.pushNamed(context, '/mensajes');
-            },
-          ),
-          _opcion(
-            context,
-            icono: Icons.account_circle_outlined,
-            titulo: 'Mi perfil',
-            seleccionado: rutaActual == '/profile',
-            onTap: () {
-              _cerrarDrawer(context);
-              if (rutaActual != '/profile') {
-                Navigator.pushNamed(
+                _opcion(
                   context,
-                  '/profile',
-                  arguments: usuario,
-                );
-              }
-            },
+                  icono: Icons.forum_outlined,
+                  titulo: 'Mensajes',
+                  seleccionado: false,
+                  onTap: () {
+                    _cerrarDrawer(context);
+                    Navigator.pushNamed(context, '/mensajes');
+                  },
+                ),
+                _opcion(
+                  context,
+                  icono: Icons.map_outlined,
+                  titulo: 'Mapa de lugares',
+                  seleccionado: false,
+                  onTap: () {
+                    _cerrarDrawer(context);
+                    Navigator.pushNamed(context, '/mapa');
+                  },
+                ),
+                _opcion(
+                  context,
+                  icono: Icons.account_circle_outlined,
+                  titulo: 'Mi perfil',
+                  seleccionado: rutaActual == '/profile',
+                  onTap: () {
+                    _cerrarDrawer(context);
+                    if (rutaActual != '/profile') {
+                      Navigator.pushNamed(
+                        context,
+                        '/profile',
+                        arguments: usuario,
+                      );
+                    }
+                  },
+                ),
+              ],
+            ),
           ),
-          const Spacer(),
           Divider(color: scheme.outline.withValues(alpha: .5), height: 1),
           ListTile(
             horizontalTitleGap: 12,
