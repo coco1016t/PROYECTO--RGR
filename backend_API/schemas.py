@@ -44,6 +44,12 @@ class BlogRespuesta(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class PerfilPublicoRespuesta(BaseModel):
+    id_usr: int
+    nom_usr: str
+    publicaciones: list[BlogRespuesta]
+
+
 class ComentarioCrear(BaseModel):
     # El autor (usr_id) ya no viaja en el body: se toma del token.
     comentario: str = Field(min_length=1, max_length=1000)
