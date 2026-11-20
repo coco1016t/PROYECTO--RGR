@@ -72,62 +72,84 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: AuthBackground(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(vertical: 20),
-            child: AuthCard(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    Icons.lock_reset,
-                    size: 65,
-                    color: Color(0xFFC9A227),
-                  ),
-                  const SizedBox(height: 15),
-                  const Text(
-                    'RECUPERAR CONTRASEÑA',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF08245C),
+        child: SafeArea(
+          child: LayoutBuilder(
+            builder: (context, constraints) => SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                child: Center(
+                  child: AuthCard(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 64,
+                          height: 64,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEEF5F4),
+                            borderRadius: BorderRadius.circular(18),
+                          ),
+                          child: const Icon(
+                            Icons.lock_reset,
+                            size: 36,
+                            color: Color(0xFF527D7B),
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+                        const Text(
+                          'RECUPERAR CONTRASEÑA',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF243341),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        CustomTextField(
+                          controller: correoController,
+                          label: 'Correo electrónico',
+                          prefixIcon: Icons.email_outlined,
+                          keyboardType: TextInputType.emailAddress,
+                        ),
+                        const SizedBox(height: 14),
+                        CustomTextField(
+                          controller: passwordController,
+                          label: 'Nueva contraseña',
+                          prefixIcon: Icons.lock_outline,
+                          obscureText: ocultarPassword,
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              ocultarPassword
+                                  ? Icons.visibility_off_outlined
+                                  : Icons.visibility_outlined,
+                            ),
+                            onPressed: () {
+                              setState(
+                                  () => ocultarPassword = !ocultarPassword);
+                            },
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        PrimaryButton(
+                          text: cargando
+                              ? 'PROCESANDO...'
+                              : 'ACTUALIZAR CONTRASEÑA',
+                          onPressed: cargando ? () {} : restablecerPassword,
+                        ),
+                        const SizedBox(height: 4),
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          style: TextButton.styleFrom(
+                            foregroundColor: const Color(0xFF527D7B),
+                          ),
+                          child: const Text('Volver a iniciar sesión'),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 25),
-                  CustomTextField(
-                    controller: correoController,
-                    label: 'Correo electrónico',
-                    prefixIcon: Icons.email_outlined,
-                    keyboardType: TextInputType.emailAddress,
-                  ),
-                  const SizedBox(height: 15),
-                  CustomTextField(
-                    controller: passwordController,
-                    label: 'Nueva contraseña',
-                    prefixIcon: Icons.lock_outline,
-                    obscureText: ocultarPassword,
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        ocultarPassword
-                            ? Icons.visibility_off_outlined
-                            : Icons.visibility_outlined,
-                      ),
-                      onPressed: () {
-                        setState(() => ocultarPassword = !ocultarPassword);
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  PrimaryButton(
-                    text: cargando ? 'PROCESANDO...' : 'ACTUALIZAR CONTRASEÑA',
-                    onPressed: cargando ? () {} : restablecerPassword,
-                  ),
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('Volver a iniciar sesión'),
-                  ),
-                ],
+                ),
               ),
             ),
           ),
