@@ -55,19 +55,6 @@ class _PostDetailPageState extends State<PostDetailPage> {
 
     try {
       final conversacion = await _mensajeriaService.abrirConversacion(autorId);
-      var nombreContacto = conversacion.contacto.nombre;
-      try {
-        final contactos = await _mensajeriaService.obtenerContactos();
-        nombreContacto = nombreContactoVisible(
-          conversacion.contacto.nombre,
-          conversacion.contacto.id,
-          contactos,
-        );
-      } catch (_) {
-        if (!SesionService.instance.activa) return;
-        nombreContacto =
-            '${conversacion.contacto.nombre} (#${conversacion.contacto.id})';
-      }
       if (!mounted) return;
       await Navigator.of(context).push<void>(
         MaterialPageRoute<void>(
@@ -77,7 +64,7 @@ class _PostDetailPageState extends State<PostDetailPage> {
               id: conversacion.contacto.id,
               nombre: conversacion.contacto.nombre,
             ),
-            nombreContacto: nombreContacto,
+            nombreContacto: conversacion.contacto.nombre,
           ),
         ),
       );
