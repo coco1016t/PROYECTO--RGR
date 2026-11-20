@@ -8,12 +8,18 @@ class PostCard extends StatelessWidget {
   final PostModel post;
   final VoidCallback onTap;
   final VoidCallback? onOpenProfile;
+  final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
+  final bool deleting;
 
   const PostCard({
     super.key,
     required this.post,
     required this.onTap,
     this.onOpenProfile,
+    this.onEdit,
+    this.onDelete,
+    this.deleting = false,
   });
 
   @override
@@ -207,6 +213,20 @@ class PostCard extends StatelessWidget {
                       ),
                     ],
                   ),
+                  if (onEdit != null)
+                    TextButton.icon(
+                      onPressed: deleting ? null : onEdit,
+                      icon: const Icon(Icons.edit_outlined, size: 18),
+                      label: const Text('Editar'),
+                    ),
+                  if (onDelete != null)
+                    TextButton.icon(
+                      onPressed: deleting ? null : onDelete,
+                      icon: const Icon(Icons.delete_outline, size: 18),
+                      label: Text(deleting ? 'Eliminando…' : 'Eliminar'),
+                      style:
+                          TextButton.styleFrom(foregroundColor: scheme.error),
+                    ),
                 ],
               ),
             ],
