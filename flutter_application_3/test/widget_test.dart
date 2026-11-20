@@ -144,6 +144,92 @@ void main() {
     });
   }
 
+  testWidgets('my posts can be edited and deleted after confirmation',
+      (tester) async {
+    tester.view.physicalSize = const Size(390, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final post = {
+      'id_blog': 42,
+      'titulo': 'Publicación original',
+      'descripcion': 'Texto original',
+      'tags': 'comunidad',
+    };
+    var eliminado = false;
+    var intentosEliminar = 0;
+    final editar = find.text('Editar');
+    final eliminar = find.text('Eliminar');
+
+    await http.runWithClient(() async {
+      await abrirRuta(tester, '/blog');
+      expect(editar, findsNothing);
+      expect(eliminar, findsNothing);
+      await tester.tap(find.text('Mis publicaciones'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(editar);
+      await tester.pumpAndSettle();
+      expect(find.text('Editar publicación'), findsOneWidget);
+      expect(find.text('Publicación original'), findsOneWidget);
+      expect(find.text('Texto original'), findsOneWidget);
+      expect(find.text('comunidad'), findsOneWidget);
+      await tester.enterText(
+          find.byType(TextFormField).first, 'Título editado');
+      await tester.tap(find.text('Guardar cambios'));
+      await tester.pumpAndSettle();
+      expect(find.text('Tus publicaciones'), findsOneWidget);
+      expect(find.text('Título editado'), findsOneWidget);
+
+      await tester.tap(eliminar);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Cancelar'));
+      await tester.pumpAndSettle();
+      expect(intentosEliminar, 0);
+
+      final confirmar = find.widgetWithText(FilledButton, 'Eliminar');
+      await tester.tap(eliminar);
+      await tester.pumpAndSettle();
+      await tester.tap(confirmar);
+      await tester.pumpAndSettle();
+      expect(find.text('Título editado'), findsOneWidget);
+      expect(find.text('No se pudo eliminar'), findsOneWidget);
+
+      await tester.tap(eliminar);
+      await tester.pumpAndSettle();
+      await tester.tap(confirmar);
+      await tester.pumpAndSettle();
+      expect(intentosEliminar, 2);
+      expect(find.byType(PostCard), findsNothing);
+      expect(find.text('Aún no has publicado nada.'), findsOneWidget);
+    },
+        () => MockClient((request) async {
+              const headers = {
+                'content-type': 'application/json; charset=utf-8'
+              };
+              if (request.method == 'PUT') {
+                expect(request.url.path, '/blog/42');
+                final formulario = utf8.decode(request.bodyBytes);
+                expect(formulario, contains('Título editado'));
+                expect(formulario, isNot(contains('filename=')));
+                post['titulo'] = 'Título editado';
+                return http.Response(jsonEncode(post), 200, headers: headers);
+              }
+              if (request.method == 'DELETE') {
+                expect(request.url.path, '/blog/42');
+                if (++intentosEliminar == 1) {
+                  return http.Response('{"detail":"No se pudo eliminar"}', 500,
+                      headers: headers);
+                }
+                eliminado = true;
+                return http.Response('', 204);
+              }
+              return http.Response(jsonEncode(eliminado ? [] : [post]), 200,
+                  headers: headers);
+            }));
+  });
+
   for (final (ruta, ancho, alto) in [
     ('/blog', 320.0, 480.0),
     ('/blog', 1280.0, 800.0),
