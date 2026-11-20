@@ -7,11 +7,13 @@ import '../services/sesion_service.dart';
 class PostCard extends StatelessWidget {
   final PostModel post;
   final VoidCallback onTap;
+  final VoidCallback? onOpenProfile;
 
   const PostCard({
     super.key,
     required this.post,
     required this.onTap,
+    this.onOpenProfile,
   });
 
   @override
@@ -27,6 +29,16 @@ class PostCard extends StatelessWidget {
             post.usuarioId == SesionService.instance.idUsuario
         ? 'Publicado por ti'
         : (post.autor.isEmpty ? 'Autor desconocido' : 'Por ${post.autor}');
+    final authorLabel = Text(
+      author,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: TextStyle(
+        color: onOpenProfile == null ? cardText : cardAccent,
+        fontWeight: FontWeight.w600,
+        fontSize: 14,
+      ),
+    );
     final tags = post.tags
         .split(',')
         .map((tag) => tag.trim())
@@ -64,16 +76,13 @@ class PostCard extends StatelessWidget {
                   ),
                   const SizedBox(width: 11),
                   Expanded(
-                    child: Text(
-                      author,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: cardText,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 14,
-                      ),
-                    ),
+                    child: onOpenProfile == null
+                        ? authorLabel
+                        : InkWell(
+                            onTap: onOpenProfile,
+                            mouseCursor: SystemMouseCursors.click,
+                            child: authorLabel,
+                          ),
                   ),
                 ],
               ),
