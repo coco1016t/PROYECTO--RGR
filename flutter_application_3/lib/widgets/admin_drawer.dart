@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../services/sesion_service.dart';
 
 class AdminDrawer extends StatelessWidget {
@@ -26,34 +27,55 @@ class AdminDrawer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
     return Drawer(
+      backgroundColor: scheme.surface,
       child: SafeArea(
         child: Column(
           children: [
             UserAccountsDrawerHeader(
-              decoration: const BoxDecoration(color: Color(0xFF08245C)),
-              currentAccountPicture: const CircleAvatar(
-                backgroundColor: Colors.white,
-                child: Icon(Icons.admin_panel_settings,
-                    color: Color(0xFF08245C), size: 34),
+              decoration: BoxDecoration(color: scheme.primary),
+              currentAccountPicture: CircleAvatar(
+                backgroundColor: scheme.surface,
+                child: Icon(
+                  Icons.admin_panel_settings_outlined,
+                  color: scheme.primary,
+                  size: 32,
+                ),
               ),
               accountName: Text(nombre),
               accountEmail: Text(correo),
             ),
-            _opcion(context, Icons.people_alt_outlined, 'Gestión de usuarios',
-                '/users'),
+            _opcion(
+              context,
+              Icons.people_alt_outlined,
+              'Gesti?n de usuarios',
+              '/users',
+            ),
             _opcion(context, Icons.forum_outlined, 'Mensajes', '/mensajes'),
-            _opcion(context, Icons.person_add_alt_1, 'Registrar usuario',
-                '/register'),
-            _opcion(context, Icons.post_add, 'Agregar blog', '/add-blog'),
-            _opcion(context, Icons.account_circle_outlined, 'Mi perfil',
-                '/profile'),
+            _opcion(
+              context,
+              Icons.person_add_alt_1_outlined,
+              'Registrar usuario',
+              '/register',
+            ),
+            _opcion(
+                context, Icons.post_add_outlined, 'Agregar blog', '/add-blog'),
+            _opcion(
+              context,
+              Icons.account_circle_outlined,
+              'Mi perfil',
+              '/profile',
+            ),
             const Spacer(),
-            const Divider(),
+            Divider(color: scheme.outline.withValues(alpha: .5), height: 1),
             ListTile(
-              leading: const Icon(Icons.logout, color: Colors.red),
-              title: const Text('Cerrar sesión',
-                  style: TextStyle(color: Colors.red)),
+              leading: Icon(Icons.logout_rounded, color: scheme.error),
+              title: Text(
+                'Cerrar sesi\u00F3n',
+                style: TextStyle(color: scheme.error),
+              ),
               onTap: () {
                 SesionService.instance.cerrar();
                 Navigator.pushNamedAndRemoveUntil(
@@ -76,12 +98,26 @@ class AdminDrawer extends StatelessWidget {
     String titulo,
     String ruta,
   ) {
+    final scheme = Theme.of(context).colorScheme;
     final seleccionado = ruta == rutaActual;
+
     return ListTile(
-      leading:
-          Icon(icono, color: seleccionado ? const Color(0xFF08245C) : null),
-      title: Text(titulo),
+      leading: Icon(
+        icono,
+        color: seleccionado
+            ? scheme.primary
+            : scheme.onSurface.withValues(alpha: .65),
+      ),
+      title: Text(
+        titulo,
+        style: TextStyle(
+          color: seleccionado ? scheme.primary : scheme.onSurface,
+          fontWeight: seleccionado ? FontWeight.w700 : FontWeight.w500,
+        ),
+      ),
       selected: seleccionado,
+      selectedTileColor: scheme.secondaryContainer,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       onTap: () => _navegar(context, ruta),
     );
   }
