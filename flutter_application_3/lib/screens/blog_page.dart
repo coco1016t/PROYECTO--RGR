@@ -9,6 +9,7 @@ import '../widgets/blog/blog_topic_filter.dart';
 import '../widgets/blog/blog_top_bar.dart';
 import '../widgets/post_card.dart';
 import '../widgets/user_drawer.dart';
+import 'add_blog_page.dart';
 import 'post_detail_page.dart';
 
 class BlogPage extends StatefulWidget {
@@ -21,6 +22,7 @@ class BlogPage extends StatefulWidget {
 class _BlogPageState extends State<BlogPage>
     with SingleTickerProviderStateMixin {
   final PostService postService = PostService();
+  final _postsEnEliminacion = <int>{};
   late final TabController _tabs;
   late Future<List<PostModel>> futurePosts;
   late Future<List<PostModel>> futureMisPosts;
@@ -105,7 +107,75 @@ class _BlogPageState extends State<BlogPage>
     recargarPosts();
   }
 
-  Widget _lista(Future<List<PostModel>> futuro, String textoVacio) {
+  Future<void> _editarPublicacion(PostModel post) async {
+    final guardado = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute<bool>(
+        builder: (context) => AddBlogPage(publicacion: post),
+      ),
+    );
+    if (!mounted || guardado != true) return;
+    recargarPosts();
+    _mostrarAviso('Publicación actualizada');
+  }
+
+  Future<void> _eliminarPublicacion(PostModel post) async {
+    if (_postsEnEliminacion.contains(post.id)) return;
+
+    final confirmado = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Eliminar publicación'),
+        content: Text(
+          'Se eliminarán «${post.titulo}», sus comentarios y sus valoraciones.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+              foregroundColor: Theme.of(context).colorScheme.onError,
+            ),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted ||
+        confirmado != true ||
+        _postsEnEliminacion.contains(post.id)) {
+      return;
+    }
+
+    setState(() => _postsEnEliminacion.add(post.id));
+    try {
+      await postService.eliminarPost(post.id);
+      if (!mounted) return;
+      recargarPosts();
+      _mostrarAviso('Publicación eliminada');
+    } catch (error) {
+      if (!mounted) return;
+      _mostrarAviso('$error'.replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) setState(() => _postsEnEliminacion.remove(post.id));
+    }
+  }
+
+  void _mostrarAviso(String mensaje) {
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.clearSnackBars();
+    messenger.showSnackBar(SnackBar(content: Text(mensaje)));
+  }
+
+  Widget _lista(
+    Future<List<PostModel>> futuro,
+    String textoVacio, {
+    bool mostrarAcciones = false,
+  }) {
     return FutureBuilder<List<PostModel>>(
       future: futuro,
       builder: (context, snapshot) {
@@ -187,6 +257,13 @@ class _BlogPageState extends State<BlogPage>
                       return PostCard(
                         post: post,
                         onTap: () => abrirDetalle(post),
+                        onEdit: mostrarAcciones
+                            ? () => _editarPublicacion(post)
+                            : null,
+                        onDelete: mostrarAcciones
+                            ? () => _eliminarPublicacion(post)
+                            : null,
+                        deleting: _postsEnEliminacion.contains(post.id),
                         onOpenProfile: post.usuarioId == null
                             ? null
                             : () => abrirPerfilUsuario(
@@ -380,7 +457,11 @@ class _BlogPageState extends State<BlogPage>
             controller: _tabs,
             children: [
               _lista(futurePosts, 'No hay publicaciones registradas.'),
-              _lista(futureMisPosts, 'Aún no has publicado nada.'),
+              _lista(
+                futureMisPosts,
+                'Aún no has publicado nada.',
+                mostrarAcciones: true,
+              ),
             ],
           ),
         ),
