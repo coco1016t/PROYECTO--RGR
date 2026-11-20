@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/post_model.dart';
+import '../navigation/user_profile_navigation.dart';
 import '../services/post_service.dart';
 import '../services/sesion_service.dart';
 import '../theme/blog_theme.dart';
@@ -46,6 +47,12 @@ class _BlogPageState extends State<BlogPage>
       if (argumento is Map<String, dynamic>) {
         usuarioActual = Map<String, dynamic>.from(argumento);
         nombreUsuario = usuarioActual['nom_usr']?.toString() ?? 'Usuario';
+        final tabInicial = usuarioActual['tab_inicial'];
+        if (tabInicial is num &&
+            tabInicial.toInt() >= 0 &&
+            tabInicial.toInt() < 2) {
+          _tabs.index = tabInicial.toInt();
+        }
       } else if (SesionService.instance.activa) {
         usuarioActual =
             Map<String, dynamic>.from(SesionService.instance.usuario);
@@ -194,6 +201,15 @@ class _BlogPageState extends State<BlogPage>
                       return PostCard(
                         post: post,
                         onTap: () => abrirDetalle(post),
+                        onOpenProfile: post.usuarioId == null
+                            ? null
+                            : () => abrirPerfilUsuario(
+                                  context,
+                                  userId: post.usuarioId!,
+                                  userName: post.autor.isEmpty
+                                      ? 'Usuario'
+                                      : post.autor,
+                                ),
                       );
                     },
                     childCount: filteredPosts.length,
