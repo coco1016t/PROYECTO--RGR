@@ -5,7 +5,6 @@ import '../navigation/user_profile_navigation.dart';
 import '../services/post_service.dart';
 import '../services/sesion_service.dart';
 import '../widgets/admin_drawer.dart';
-import '../widgets/blog/blog_aside_panel.dart';
 import '../widgets/blog/blog_topic_filter.dart';
 import '../widgets/blog/blog_top_bar.dart';
 import '../widgets/post_card.dart';
@@ -26,7 +25,6 @@ class _BlogPageState extends State<BlogPage>
   late Future<List<PostModel>> futurePosts;
   late Future<List<PostModel>> futureMisPosts;
   late final TextEditingController _searchController = TextEditingController();
-  String nombreUsuario = 'Usuario';
   String _consulta = '';
   String? _temaSeleccionado;
   Map<String, dynamic> usuarioActual = {
@@ -45,7 +43,6 @@ class _BlogPageState extends State<BlogPage>
 
       if (argumento is Map<String, dynamic>) {
         usuarioActual = Map<String, dynamic>.from(argumento);
-        nombreUsuario = usuarioActual['nom_usr']?.toString() ?? 'Usuario';
         final tabInicial = usuarioActual['tab_inicial'];
         if (tabInicial is num &&
             tabInicial.toInt() >= 0 &&
@@ -55,7 +52,6 @@ class _BlogPageState extends State<BlogPage>
       } else if (SesionService.instance.activa) {
         usuarioActual =
             Map<String, dynamic>.from(SesionService.instance.usuario);
-        nombreUsuario = usuarioActual['nom_usr']?.toString() ?? 'Usuario';
       }
       argumentoLeido = true;
     }
@@ -401,7 +397,6 @@ class _BlogPageState extends State<BlogPage>
     final esAdmin = (usuarioActual['tip_usu'] as num? ?? 2).toInt() == 1;
     final screenWidth = MediaQuery.sizeOf(context).width;
     final mostrarMenuPermanente = !esAdmin && screenWidth >= 1120;
-    final mostrarPanelLateral = screenWidth >= 1510;
     void cambiarPestana(int indice) => _tabs.animateTo(indice);
 
     return Scaffold(
@@ -414,13 +409,11 @@ class _BlogPageState extends State<BlogPage>
       drawer: esAdmin
           ? AdminDrawer(usuario: usuarioActual, rutaActual: '/blog')
           : (mostrarMenuPermanente ? null : UserDrawer(usuario: usuarioActual)),
-      floatingActionButton: mostrarPanelLateral
-          ? null
-          : FloatingActionButton.small(
-              onPressed: nuevaPublicacion,
-              tooltip: 'Crear publicación',
-              child: const Icon(Icons.add_rounded),
-            ),
+      floatingActionButton: FloatingActionButton.small(
+        onPressed: nuevaPublicacion,
+        tooltip: 'Crear publicación',
+        child: const Icon(Icons.add_rounded),
+      ),
       body: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -431,29 +424,11 @@ class _BlogPageState extends State<BlogPage>
               onCambiarTab: cambiarPestana,
             ),
           Expanded(
-            child: Align(
-              alignment: Alignment.topCenter,
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxWidth: mostrarPanelLateral ? 1600 : 1250,
-                ),
-                child: _contenidoFeed(
-                  context,
-                  mostrarPestanas: !mostrarMenuPermanente,
-                ),
-              ),
+            child: _contenidoFeed(
+              context,
+              mostrarPestanas: !mostrarMenuPermanente,
             ),
           ),
-          if (mostrarPanelLateral)
-            SizedBox(
-              width: 318,
-              child: BlogAsidePanel(
-                postsFuture: futurePosts,
-                userName: nombreUsuario,
-                onCreatePost: nuevaPublicacion,
-                onOpenPost: abrirDetalle,
-              ),
-            ),
         ],
       ),
     );
