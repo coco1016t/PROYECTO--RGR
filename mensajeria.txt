@@ -30,11 +30,11 @@ Chat privado o mensajes directos entre usuarios registrados.
 2. **Orden de bandeja:** la fuente de verdad será el mayor `id_mensaje` de cada conversación. Se elimina `actualizada_en` y no se ordenará la bandeja por timestamps. Esto evita una fecha que necesite actualizarse al insertar cada mensaje y mantiene orden monotónico.
 3. **Tipos de fecha:** usar `DATETIME` sin fracciones tanto en DDL como en SQLAlchemy (`DateTime` + `server_default=func.current_timestamp()`). No usar `DATETIME(6)`, `CURRENT_TIMESTAMP(6)` ni `ON UPDATE`; así `create_all` y la migración producen el mismo esquema. El orden funcional depende de IDs, no de la precisión de las fechas.
 4. **Polling incremental:** el historial admite `despues_de_id` para descargar solo mensajes nuevos. Flutter fusiona por ID y no reemplaza los mensajes antiguos.
-5. **Búsqueda de contactos:** se descarga la lista completa de contactos del proyecto y se filtra localmente por nombre; no hay `q` ni paginación de contactos en esta primera versión. La búsqueda siempre parte de la lista completa, así que puede detectar nombres duplicados.
+5. **Búsqueda de contactos:** el selector consulta el servidor conforme se escribe, tras dos caracteres, con límite predeterminado de 8 y máximo de 20 resultados; no descarga el directorio completo.
 6. **Contactos duplicados:** la API devuelve nombre e ID separados. En Flutter, si el nombre colisiona, mostrar `Nombre (#ID)`; no revelar correo, dirección ni rol.
 7. **Vista previa:** máximo 80 caracteres; convertir saltos de línea en espacios y normalizar espacios antes de truncar. No se añade `ultimo_emisor_id` ni prefijo “Tú:”; la bandeja muestra el texto y la fecha del último mensaje.
 8. **Recibos de lectura:** `leido_en` es interno para contar no leídos. No se expone al cliente ni se muestra “Leído”. Abrir el chat marca recibidos como leídos; el criterio significa “cargado en el chat abierto”, no garantiza lectura visual si la persona está recorriendo mensajes antiguos.
-9. **Hilos vacíos:** se crea un hilo al abrir contacto, pero se excluye de ambas bandejas hasta que se envíe el primer mensaje. Si quien lo abrió vuelve sin enviar, tampoco lo verá en su propia bandeja. El máximo de un hilo por pareja evita duplicados; no se añade rate limit en esta versión.
+9. **Hilos vacíos:** al abrir un contacto o usar "Enviar mensaje" en una publicación, se crea un hilo que aparece en la bandeja aunque todavía no tenga mensajes. La bandeja nunca carga todos los usuarios como contactos.
 10. **Estados:** abrir/crear responde 201 si se creó y 200 si ya existía o ganó otra petición concurrente. Enviar responde 201. Automensaje 400, contacto inexistente 404, no participante 404, mensaje inválido 422, sin token 401. Errores FastAPI usan `{"detail": "..."}` y Flutter comparte el extractor de errores de `UserService`.
 11. **Privacidad:** administradores no pueden leer conversaciones ajenas; todas las operaciones verifican membresía. No participante y conversación inexistente devuelven el mismo 404.
 12. **Base existente:** generar respaldo local protegido antes del DDL y aplicar solo la migración aditiva; no importar `bd.sql` sobre una base que ya contiene datos.
@@ -97,8 +97,8 @@ Todas las rutas exigen JWT. El ID del emisor se toma del token, no del body.
 
 | Método/ruta | Respuesta | Errores/semántica |
 |---|---|---|
-| `GET /mensajes/contactos` | `[{"id_usr":8,"nom_usr":"Jose perez"}]` | 200; excluye al usuario actual; solo ID/nombre; sin token 401. |
-| `GET /mensajes/conversaciones` | Lista de conversación con contacto, último texto, fecha y no leídos | 200; excluye hilos sin mensajes; ordena por ID del último mensaje descendente; 401. |
+| `GET /mensajes/contactos?buscar=ana&limite=8` | `[{"id_usr":8,"nom_usr":"Jose perez"}]` | 200; `buscar` requiere 2 caracteres, `limite` es 8 por defecto y 20 como máximo; excluye al usuario actual; solo ID/nombre; sin token 401. |
+| `GET /mensajes/conversaciones` | Lista de conversaciones con contacto, último texto, fecha y no leídos | 200; incluye conversaciones vacías; ordena hilos activos por mayor ID de mensaje y después borradores por ID de conversación; 401. |
 | `POST /mensajes/conversaciones/{usuario_id}` | Conversación con último mensaje nulo si aún está vacía | 201 nueva, 200 existente o carrera resuelta; 400 usuario actual; 404 contacto ausente; 401. |
 | `GET /mensajes/conversaciones/{id}/mensajes?limite=50&antes_de_id=123` | `{"mensajes":[...],"hay_mas_anteriores":true,"hay_mas_nuevos":false}` | 200; 404 no participante/no existe; 422 límite o cursor inválido. |
 | `GET /mensajes/conversaciones/{id}/mensajes?limite=50&despues_de_id=123` | `{"mensajes":[...],"hay_mas_anteriores":false,"hay_mas_nuevos":true}` | Devuelve solo IDs mayores al cursor, ascendentes; 404 no participante; 422 parámetros inválidos. |
@@ -129,8 +129,8 @@ Canonicalizar `(min(usuario_actual, usuario_destino), max(...))`, buscar, insert
 ## 7. Flutter, búsqueda y navegación
 
 - Añadir modelos, servicio HTTP autenticado y bandeja/selector/chat siguiendo los DTOs anteriores.
-- El selector recibe todos los contactos sin el usuario actual y filtra localmente por nombre. Como la lista fuente es completa, detecta todas las colisiones: etiqueta `Jose perez (#8)` solo para nombres duplicados. Sin búsqueda en servidor ni paginación de contactos en esta versión; si el número de usuarios crece, ampliar contrato con `q` y paginación.
-- Bandeja: orden por actividad reciente, vista previa normalizada, hora desde `fecha_ultimo_mensaje`, contador no leído. No muestra “Tú:” ni hilos vacíos. Al volver del chat, recargar bandeja.
+- El selector busca contactos remotamente después de dos caracteres, aplica una espera breve mientras se escribe y presenta un máximo de 8 resultados por petición. El nombre e ID permiten distinguir nombres duplicados.
+- Bandeja: solo lista conversaciones abiertas (incluidos borradores vacíos), ordenadas por actividad reciente; muestra vista previa normalizada, hora y contador de no leídos. Al volver del chat, recargar bandeja.
 - Registrar ruta `/mensajes`; agregar opción al `AdminDrawer` y botón de chat en el AppBar del blog para todos. En la página de mensajería mostrar el drawer solo si `tip_usu == 1`; los usuarios normales no reciben opciones administrativas. Administradores no tienen privilegio de leer chats ajenos.
 - Verificar `PostModel` para que exponga y parse `usr_id`, ya presente en `BlogRespuesta`. En `PostDetailPage`, mostrar “Enviar mensaje” solo cuando `usr_id != null` y no sea el ID actual. Si autor es nulo/eliminado o propio, ocultar acción. Reutilizar abrir/crear conversación.
 - Chat limita composer a 2,000 caracteres, mantiene historial ante error de red y maneja respuesta `{detail: ...}` mediante el extractor compartido.
@@ -160,8 +160,8 @@ La cascada de mensajería borra hilos e historial permanentemente si el borrado 
 ## 10. Pruebas pendientes
 
 1. Pareja A/B con apertura repetida y concurrente: mismo ID, una fila; 200/201 correctos; constraint bloquea pareja invertida y autorrelación.
-2. Contactos excluyen al usuario actual y no incluyen correo/dirección/rol; nombres duplicados se muestran con ID aun cuando se filtra localmente.
-3. Borrador vacío no aparece en bandeja de A ni B; tras primer mensaje aparece en ambas; fecha y orden de actividad cambian al llegar mensaje nuevo.
+2. La búsqueda de contactos excluye al usuario actual, solo expone ID y nombre, requiere dos caracteres y limita cada respuesta a 20 resultados; los nombres duplicados se muestran con ID.
+3. Un chat abierto desde búsqueda o desde "Enviar mensaje" aparece en las bandejas de sus participantes antes del primer mensaje; al enviar, aparece la vista previa y la fecha de actividad.
 4. Vista previa de 80 y 81 caracteres, saltos de línea, emoji y acentos; siempre máximo 80 y texto normalizado.
 5. Polling: A mantiene chat abierto, B envía, A ve mensaje en máximo un ciclo (4 s), no duplica y conserva historial antiguo/posición de lectura. Cursor `despues_de_id` con más de 50 nuevos; sin saltos/duplicados. Paginación `antes_de_id` estable con mensajes del mismo segundo.
 6. No leídos solo cuenta entrantes; marcar no toca propios, segunda llamada devuelve 0; no se expone `leido_en` ni estado “Leído”.
@@ -169,7 +169,7 @@ La cascada de mensajería borra hilos e historial permanentemente si el borrado 
 8. Cuenta con comentarios: DELETE responde 409 y no borra chat. Cuenta de prueba eliminable: cascada borra conversación/mensajes.
 9. Migración ejecutada dos veces en base temporal; inspección de columnas/índices/CHECK/FKs. Comparación exacta contra ORM sin `DATETIME(6)` ni columnas extra.
 10. Importar `bd.sql` en MariaDB 10.4 limpio tras sustituir todas las colaciones; probar orden de drop, incluidos `valoraciones`, y nunca sobre BD existente con datos.
-11. Flutter: polling detenido en segundo plano/dispose, reanudación, no solapamiento, error sin perder historial, 401 y pantalla pequeña/teclado.
+11. Flutter: polling detenido en segundo plano/dispose, reanudación, no solapamiento, error sin perder historial, 401 y pantalla pequeña/teclado. La bandeja solo muestra conversaciones abiertas; la búsqueda incremental consulta desde dos caracteres y limita a 8 resultados. Hay un solo botón de actualizar en la esquina superior derecha de cada vista.
 12. El análisis estático `flutter analyze` se ejecutó y no encontró problemas. Las pruebas HTTP de backend y UI siguen pendientes; no se ejecutó `flutter test` ni una suite de backend.
 
 ## 11. Implementación realizada
