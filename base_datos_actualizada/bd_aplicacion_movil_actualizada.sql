@@ -53,35 +53,8 @@ INSERT INTO `blog` VALUES (1,'Introduccion a MySQL','Conceptos basicos de bases 
 /*!40000 ALTER TABLE `blog` ENABLE KEYS */;
 UNLOCK TABLES;
 
---
--- Table structure for table `codigo_recuperacion`
---
-
+-- Limpieza al reconstruir una base de versiones anteriores.
 DROP TABLE IF EXISTS `codigo_recuperacion`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `codigo_recuperacion` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `usr_id` int(11) NOT NULL,
-  `codigo_hash` varchar(64) NOT NULL,
-  `expira_en` int(11) NOT NULL,
-  `creado_en` int(11) NOT NULL,
-  `intentos` int(11) NOT NULL,
-  PRIMARY KEY (`id`),
-  KEY `ix_codigo_recuperacion_id` (`id`),
-  KEY `ix_codigo_recuperacion_usr_id` (`usr_id`),
-  CONSTRAINT `codigo_recuperacion_ibfk_1` FOREIGN KEY (`usr_id`) REFERENCES `usuario` (`id_usr`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `codigo_recuperacion`
---
-
-LOCK TABLES `codigo_recuperacion` WRITE;
-/*!40000 ALTER TABLE `codigo_recuperacion` DISABLE KEYS */;
-/*!40000 ALTER TABLE `codigo_recuperacion` ENABLE KEYS */;
-UNLOCK TABLES;
 
 --
 -- Table structure for table `comentarios`
