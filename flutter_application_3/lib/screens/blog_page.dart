@@ -5,6 +5,7 @@ import '../services/sesion_service.dart';
 import '../widgets/post_card.dart';
 import 'post_detail_page.dart';
 import '../widgets/admin_drawer.dart';
+import '../widgets/user_drawer.dart';
 
 class BlogPage extends StatefulWidget {
   const BlogPage({super.key});
@@ -13,8 +14,10 @@ class BlogPage extends StatefulWidget {
   State<BlogPage> createState() => _BlogPageState();
 }
 
-class _BlogPageState extends State<BlogPage> {
+class _BlogPageState extends State<BlogPage>
+    with SingleTickerProviderStateMixin {
   final PostService postService = PostService();
+  late final TabController _tabs;
   late Future<List<PostModel>> futurePosts;
   late Future<List<PostModel>> futureMisPosts;
   String nombreUsuario = 'Usuario';
@@ -47,8 +50,19 @@ class _BlogPageState extends State<BlogPage> {
   @override
   void initState() {
     super.initState();
+    // Controlador de pestañas propio para poder cambiarlas desde la barra lateral.
+    _tabs = TabController(length: 2, vsync: this);
+    _tabs.addListener(() {
+      if (!_tabs.indexIsChanging && mounted) setState(() {});
+    });
     futurePosts = postService.obtenerPosts();
     futureMisPosts = postService.obtenerMisPosts();
+  }
+
+  @override
+  void dispose() {
+    _tabs.dispose();
+    super.dispose();
   }
 
   void recargarPosts() {
@@ -174,59 +188,65 @@ class _BlogPageState extends State<BlogPage> {
 
   @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 2,
-      child: Scaffold(
-        appBar: AppBar(
-          title: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('Mi Blog'),
-              Text(
-                'Bienvenido, $nombreUsuario',
-                style: const TextStyle(fontSize: 12),
-              ),
-            ],
-          ),
-          actions: [
-            IconButton(
-              tooltip: 'Mensajes privados',
-              icon: const Icon(Icons.forum_outlined),
-              onPressed: () => Navigator.pushNamed(context, '/mensajes'),
-            ),
-            IconButton(
-              tooltip: 'Actualizar',
-              icon: const Icon(Icons.refresh),
-              onPressed: recargarPosts,
-            ),
-            IconButton(
-              tooltip: 'Cerrar sesión',
-              icon: const Icon(Icons.logout),
-              onPressed: cerrarSesion,
-            ),
-          ],
-          bottom: const TabBar(
-            tabs: [
-              Tab(text: 'Todos'),
-              Tab(text: 'Mis posts'),
-            ],
-          ),
-        ),
-        drawer: (usuarioActual['tip_usu'] as num? ?? 2).toInt() == 1
-            ? AdminDrawer(usuario: usuarioActual, rutaActual: '/blog')
-            : null,
-        floatingActionButton: FloatingActionButton.extended(
-          onPressed: nuevaPublicacion,
-          icon: const Icon(Icons.add),
-          label: const Text('Nueva publicación'),
-        ),
-        body: TabBarView(
+    final bool esAdmin = (usuarioActual['tip_usu'] as num? ?? 2).toInt() == 1;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            _lista(futurePosts, 'No hay publicaciones registradas.', true),
-            _lista(futureMisPosts, 'Aún no has publicado nada.', false),
+            const Text('Mi Blog'),
+            Text(
+              'Bienvenido, $nombreUsuario',
+              style: const TextStyle(fontSize: 12),
+            ),
           ],
         ),
+        actions: [
+          IconButton(
+            tooltip: 'Mensajes privados',
+            icon: const Icon(Icons.forum_outlined),
+            onPressed: () => Navigator.pushNamed(context, '/mensajes'),
+          ),
+          IconButton(
+            tooltip: 'Actualizar',
+            icon: const Icon(Icons.refresh),
+            onPressed: recargarPosts,
+          ),
+          IconButton(
+            tooltip: 'Cerrar sesión',
+            icon: const Icon(Icons.logout),
+            onPressed: cerrarSesion,
+          ),
+        ],
+        bottom: TabBar(
+          controller: _tabs,
+          tabs: const [
+            Tab(text: 'Todos'),
+            Tab(text: 'Mis posts'),
+          ],
+        ),
+      ),
+      // Administrador: su menú de siempre. Usuario normal: menú nuevo.
+      drawer: esAdmin
+          ? AdminDrawer(usuario: usuarioActual, rutaActual: '/blog')
+          : UserDrawer(
+              usuario: usuarioActual,
+              tabActual: _tabs.index,
+              onCambiarTab: (indice) => _tabs.animateTo(indice),
+            ),
+      floatingActionButton: FloatingActionButton.small(
+        onPressed: nuevaPublicacion,
+        tooltip: 'Nueva publicación',
+        child: const Icon(Icons.add),
+      ),
+      body: TabBarView(
+        controller: _tabs,
+        children: [
+          _lista(futurePosts, 'No hay publicaciones registradas.', true),
+          _lista(futureMisPosts, 'Aún no has publicado nada.', false),
+        ],
       ),
     );
   }
