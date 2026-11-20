@@ -127,8 +127,10 @@ class _RegisterPageState extends State<RegisterPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Registro de usuario'),
-        backgroundColor: Colors.transparent,
+        backgroundColor: const Color(0xFFF7F9F8),
+        foregroundColor: const Color(0xFF243341),
         elevation: 0,
+        scrolledUnderElevation: 0,
         leading: _esAdministrador
             ? Builder(
                 builder: (context) => IconButton(
@@ -150,91 +152,141 @@ class _RegisterPageState extends State<RegisterPage> {
             )
           : null,
       body: AuthBackground(
-        child: Center(
-          child: AuthCard(
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    Icons.person_add,
-                    size: 65,
-                    color: Color(0xFF2196F3),
-                  ),
-                  const SizedBox(height: 15),
-                  const Text(
-                    'CREAR CUENTA',
-                    style: TextStyle(
-                      fontSize: 27,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF08245C),
-                    ),
-                  ),
-                  const SizedBox(height: 25),
-                  CustomTextField(
-                    controller: nombreController,
-                    label: 'Nombre completo',
-                    prefixIcon: Icons.person,
-                  ),
-                  const SizedBox(height: 15),
-                  CustomTextField(
-                    controller: correoController,
-                    label: 'Correo electrónico',
-                    prefixIcon: Icons.email,
-                    keyboardType: TextInputType.emailAddress,
-                  ),
-                  const SizedBox(height: 15),
-                  CustomTextField(
-                    controller: passwordController,
-                    label: 'Contraseña',
-                    prefixIcon: Icons.lock,
-                    obscureText: true,
-                  ),
-                  const SizedBox(height: 15),
-                  CustomTextField(
-                    controller: confirmarPasswordController,
-                    label: 'Confirmar contraseña',
-                    prefixIcon: Icons.lock_outline,
-                    obscureText: true,
-                  ),
-                  if (_esAdministrador) ...[
-                    const SizedBox(height: 15),
-                    DropdownButtonFormField<int>(
-                      initialValue: _tipoUsuario,
-                      decoration: const InputDecoration(
-                        labelText: 'Tipo de usuario',
-                        border: OutlineInputBorder(),
-                      ),
-                      items: const [
-                        DropdownMenuItem(
-                          value: 1,
-                          child: Text('Administrador'),
+        child: SafeArea(
+          child: LayoutBuilder(
+            builder: (context, constraints) => SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                child: Center(
+                  child: AuthCard(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 64,
+                          height: 64,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEEF5F4),
+                            borderRadius: BorderRadius.circular(18),
+                          ),
+                          child: const Icon(
+                            Icons.person_add,
+                            size: 34,
+                            color: Color(0xFF527D7B),
+                          ),
                         ),
-                        DropdownMenuItem(
-                          value: 2,
-                          child: Text('General'),
+                        const SizedBox(height: 18),
+                        const Text(
+                          'CREAR CUENTA',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF243341),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        CustomTextField(
+                          controller: nombreController,
+                          label: 'Nombre completo',
+                          prefixIcon: Icons.person,
+                        ),
+                        const SizedBox(height: 14),
+                        CustomTextField(
+                          controller: correoController,
+                          label: 'Correo electrónico',
+                          prefixIcon: Icons.email,
+                          keyboardType: TextInputType.emailAddress,
+                        ),
+                        const SizedBox(height: 14),
+                        CustomTextField(
+                          controller: passwordController,
+                          label: 'Contraseña',
+                          prefixIcon: Icons.lock,
+                          obscureText: true,
+                        ),
+                        const SizedBox(height: 14),
+                        CustomTextField(
+                          controller: confirmarPasswordController,
+                          label: 'Confirmar contraseña',
+                          prefixIcon: Icons.lock_outline,
+                          obscureText: true,
+                        ),
+                        if (_esAdministrador) ...[
+                          const SizedBox(height: 14),
+                          DropdownButtonFormField<int>(
+                            initialValue: _tipoUsuario,
+                            isExpanded: true,
+                            decoration: InputDecoration(
+                              labelText: 'Tipo de usuario',
+                              labelStyle:
+                                  const TextStyle(color: Color(0xFF667483)),
+                              floatingLabelStyle: const TextStyle(
+                                color: Color(0xFF527D7B),
+                              ),
+                              filled: true,
+                              fillColor: Colors.white,
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 16,
+                              ),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide:
+                                    const BorderSide(color: Color(0xFFDCE3E8)),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide:
+                                    const BorderSide(color: Color(0xFFDCE3E8)),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: const BorderSide(
+                                  color: Color(0xFF527D7B),
+                                  width: 1.5,
+                                ),
+                              ),
+                            ),
+                            style: const TextStyle(color: Color(0xFF243341)),
+                            items: const [
+                              DropdownMenuItem(
+                                value: 1,
+                                child: Text('Administrador'),
+                              ),
+                              DropdownMenuItem(
+                                value: 2,
+                                child: Text('General'),
+                              ),
+                            ],
+                            onChanged: _cargando
+                                ? null
+                                : (tipo) {
+                                    if (tipo != null) {
+                                      setState(() => _tipoUsuario = tipo);
+                                    }
+                                  },
+                          ),
+                        ],
+                        const SizedBox(height: 24),
+                        PrimaryButton(
+                          text: _cargando ? 'REGISTRANDO...' : 'REGISTRARME',
+                          onPressed: _cargando ? () {} : registrarUsuario,
+                        ),
+                        const SizedBox(height: 8),
+                        TextButton(
+                          onPressed:
+                              _cargando ? null : () => Navigator.pop(context),
+                          style: TextButton.styleFrom(
+                            foregroundColor: const Color(0xFF527D7B),
+                          ),
+                          child: const Text('Ya tengo una cuenta'),
                         ),
                       ],
-                      onChanged: _cargando
-                          ? null
-                          : (tipo) {
-                              if (tipo != null) {
-                                setState(() => _tipoUsuario = tipo);
-                              }
-                            },
                     ),
-                  ],
-                  const SizedBox(height: 25),
-                  PrimaryButton(
-                    text: _cargando ? 'REGISTRANDO...' : 'REGISTRARME',
-                    onPressed: _cargando ? () {} : registrarUsuario,
                   ),
-                  const SizedBox(height: 15),
-                  TextButton(
-                    onPressed: _cargando ? null : () => Navigator.pop(context),
-                    child: const Text('Ya tengo una cuenta'),
-                  ),
-                ],
+                ),
               ),
             ),
           ),
