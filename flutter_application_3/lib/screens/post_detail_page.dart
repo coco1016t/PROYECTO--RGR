@@ -10,14 +10,6 @@ import '../services/sesion_service.dart';
 import '../widgets/valoracion_estrellas.dart';
 import 'mensajes_page.dart';
 
-const Color _detailBackground = Color(0xFFF7F9F8);
-const Color _detailSurface = Color(0xFFFFFFFF);
-const Color _detailText = Color(0xFF243341);
-const Color _detailMuted = Color(0xFF667483);
-const Color _detailAccent = Color(0xFF527D7B);
-const Color _detailTint = Color(0xFFEEF5F4);
-const Color _detailBorder = Color(0xFFDCE3E8);
-
 class PostDetailPage extends StatefulWidget {
   final PostModel post;
   const PostDetailPage({
@@ -120,18 +112,20 @@ class _PostDetailPageState extends State<PostDetailPage> {
     return limpia.length >= 16 ? limpia.substring(0, 16) : limpia;
   }
 
-  Widget _seccionComentarios() {
+  Widget _seccionComentarios(BuildContext context) {
     final miId = SesionService.instance.idUsuario;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Comentarios',
           style: TextStyle(
             fontSize: 22,
             fontWeight: FontWeight.w700,
-            color: _detailText,
+            color: scheme.onSurface,
           ),
         ),
         const SizedBox(height: 14),
@@ -142,7 +136,7 @@ class _PostDetailPageState extends State<PostDetailPage> {
               return const Padding(
                 padding: EdgeInsets.symmetric(vertical: 24),
                 child: Center(
-                  child: CircularProgressIndicator(color: _detailAccent),
+                  child: CircularProgressIndicator(),
                 ),
               );
             }
@@ -152,24 +146,22 @@ class _PostDetailPageState extends State<PostDetailPage> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: _detailBackground,
+                  color: theme.scaffoldBackgroundColor,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: _detailBorder),
+                  border: Border.all(color: scheme.outlineVariant),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       '${snapshot.error}'.replaceFirst('Exception: ', ''),
-                      style: const TextStyle(color: _detailMuted),
+                      style: TextStyle(color: scheme.onSurfaceVariant),
                     ),
                     const SizedBox(height: 8),
                     TextButton.icon(
                       onPressed: _recargar,
                       icon: const Icon(Icons.refresh),
                       label: const Text('Reintentar'),
-                      style:
-                          TextButton.styleFrom(foregroundColor: _detailAccent),
                     ),
                   ],
                 ),
@@ -183,13 +175,13 @@ class _PostDetailPageState extends State<PostDetailPage> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
-                  color: _detailBackground,
+                  color: theme.scaffoldBackgroundColor,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: _detailBorder),
+                  border: Border.all(color: scheme.outlineVariant),
                 ),
-                child: const Text(
+                child: Text(
                   'Aún no hay comentarios. ¡Sé el primero!',
-                  style: TextStyle(color: _detailMuted),
+                  style: TextStyle(color: scheme.onSurfaceVariant),
                 ),
               );
             }
@@ -206,9 +198,9 @@ class _PostDetailPageState extends State<PostDetailPage> {
                   margin: const EdgeInsets.only(bottom: 12),
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: esMio ? _detailTint : _detailSurface,
+                    color: esMio ? scheme.secondaryContainer : scheme.surface,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: _detailBorder),
+                    border: Border.all(color: scheme.outlineVariant),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -217,13 +209,13 @@ class _PostDetailPageState extends State<PostDetailPage> {
                         builder: (context, constraints) {
                           final autor = Row(
                             children: [
-                              const CircleAvatar(
+                              CircleAvatar(
                                 radius: 17,
-                                backgroundColor: _detailTint,
+                                backgroundColor: scheme.secondaryContainer,
                                 child: Icon(
                                   Icons.person_outline,
                                   size: 19,
-                                  color: _detailAccent,
+                                  color: scheme.onSecondaryContainer,
                                 ),
                               ),
                               const SizedBox(width: 10),
@@ -232,8 +224,8 @@ class _PostDetailPageState extends State<PostDetailPage> {
                                   nombre,
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    color: _detailText,
+                                  style: TextStyle(
+                                    color: scheme.onSurface,
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
@@ -242,8 +234,8 @@ class _PostDetailPageState extends State<PostDetailPage> {
                           );
                           final fecha = Text(
                             _fechaCorta(c.fecha),
-                            style: const TextStyle(
-                              color: _detailMuted,
+                            style: TextStyle(
+                              color: scheme.onSurfaceVariant,
                               fontSize: 12,
                             ),
                           );
@@ -274,8 +266,8 @@ class _PostDetailPageState extends State<PostDetailPage> {
                       const SizedBox(height: 12),
                       Text(
                         c.comentario,
-                        style: const TextStyle(
-                          color: _detailText,
+                        style: TextStyle(
+                          color: scheme.onSurface,
                           fontSize: 15,
                           height: 1.5,
                         ),
@@ -290,32 +282,12 @@ class _PostDetailPageState extends State<PostDetailPage> {
         const SizedBox(height: 16),
         TextField(
           controller: _controller,
-          cursorColor: _detailAccent,
-          style: const TextStyle(color: _detailText, fontSize: 15),
+          style: TextStyle(color: scheme.onSurface, fontSize: 15),
           maxLength: 1000,
           minLines: 1,
           maxLines: 4,
           decoration: InputDecoration(
             hintText: 'Escribe un comentario...',
-            hintStyle: const TextStyle(color: _detailMuted),
-            filled: true,
-            fillColor: _detailSurface,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 14,
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(color: _detailBorder),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(color: _detailAccent, width: 1.5),
-            ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(color: _detailBorder),
-            ),
             suffixIcon: _enviando
                 ? const Padding(
                     padding: EdgeInsets.all(12),
@@ -324,13 +296,12 @@ class _PostDetailPageState extends State<PostDetailPage> {
                       height: 20,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        color: _detailAccent,
                       ),
                     ),
                   )
                 : IconButton(
                     tooltip: 'Enviar',
-                    color: _detailAccent,
+                    color: scheme.primary,
                     icon: const Icon(Icons.send),
                     onPressed: _enviar,
                   ),
@@ -342,6 +313,8 @@ class _PostDetailPageState extends State<PostDetailPage> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final post = widget.post;
     final tags = post.tags
         .split(',')
@@ -350,15 +323,10 @@ class _PostDetailPageState extends State<PostDetailPage> {
         .toList();
 
     return Scaffold(
-      backgroundColor: _detailBackground,
       appBar: AppBar(
         title: const Text('Detalle de publicación'),
-        backgroundColor: _detailSurface,
-        foregroundColor: _detailText,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        titleTextStyle: const TextStyle(
-          color: _detailText,
+        titleTextStyle: TextStyle(
+          color: scheme.onSurface,
           fontSize: 18,
           fontWeight: FontWeight.w600,
         ),
@@ -383,9 +351,9 @@ class _PostDetailPageState extends State<PostDetailPage> {
                 child: Container(
                   width: double.infinity,
                   decoration: BoxDecoration(
-                    color: _detailSurface,
+                    color: scheme.surface,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: _detailBorder),
+                    border: Border.all(color: scheme.outlineVariant),
                     boxShadow: const [
                       BoxShadow(
                         color: Color(0x08000000),
@@ -408,7 +376,7 @@ class _PostDetailPageState extends State<PostDetailPage> {
                                   tag.startsWith('#') ? tag : '#$tag';
                               return DecoratedBox(
                                 decoration: BoxDecoration(
-                                  color: _detailTint,
+                                  color: scheme.secondaryContainer,
                                   borderRadius: BorderRadius.circular(16),
                                 ),
                                 child: Padding(
@@ -418,8 +386,8 @@ class _PostDetailPageState extends State<PostDetailPage> {
                                   ),
                                   child: Text(
                                     etiqueta,
-                                    style: const TextStyle(
-                                      color: _detailAccent,
+                                    style: TextStyle(
+                                      color: scheme.onSecondaryContainer,
                                       fontSize: 13,
                                       fontWeight: FontWeight.w600,
                                     ),
@@ -433,7 +401,7 @@ class _PostDetailPageState extends State<PostDetailPage> {
                         Text(
                           post.titulo,
                           style: TextStyle(
-                            color: _detailText,
+                            color: scheme.onSurface,
                             fontSize: narrow ? 26 : 32,
                             height: 1.22,
                             fontWeight: FontWeight.w700,
@@ -448,20 +416,20 @@ class _PostDetailPageState extends State<PostDetailPage> {
                                   : post.autor,
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: _detailAccent,
+                              style: TextStyle(
+                                color: scheme.primary,
                                 fontSize: 15,
                                 fontWeight: FontWeight.w600,
                               ),
                             );
                             final autor = Row(
                               children: [
-                                const CircleAvatar(
+                                CircleAvatar(
                                   radius: 20,
-                                  backgroundColor: _detailTint,
+                                  backgroundColor: scheme.secondaryContainer,
                                   child: Icon(
                                     Icons.person_outline,
-                                    color: _detailAccent,
+                                    color: scheme.onSecondaryContainer,
                                   ),
                                 ),
                                 const SizedBox(width: 12),
@@ -491,8 +459,7 @@ class _PostDetailPageState extends State<PostDetailPage> {
                                 icon: const Icon(Icons.chat_bubble_outline),
                                 label: const Text('Enviar mensaje'),
                                 style: OutlinedButton.styleFrom(
-                                  foregroundColor: _detailAccent,
-                                  side: const BorderSide(color: _detailAccent),
+                                  side: BorderSide(color: scheme.primary),
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 14,
                                     vertical: 12,
@@ -542,7 +509,7 @@ class _PostDetailPageState extends State<PostDetailPage> {
                               return ClipRRect(
                                 borderRadius: BorderRadius.circular(13),
                                 child: ColoredBox(
-                                  color: _detailBackground,
+                                  color: theme.scaffoldBackgroundColor,
                                   child: Image.network(
                                     PostService.urlImagen(post.imagen)
                                         .toString(),
@@ -553,10 +520,10 @@ class _PostDetailPageState extends State<PostDetailPage> {
                                       return SizedBox(
                                         width: double.infinity,
                                         height: imageHeight,
-                                        child: const Center(
+                                        child: Center(
                                           child: Icon(
                                             Icons.image_not_supported_outlined,
-                                            color: _detailMuted,
+                                            color: scheme.onSurfaceVariant,
                                             size: 30,
                                           ),
                                         ),
@@ -577,8 +544,8 @@ class _PostDetailPageState extends State<PostDetailPage> {
                               post.descripcion.isNotEmpty
                                   ? post.descripcion
                                   : 'Esta publicación no tiene descripción.',
-                              style: const TextStyle(
-                                color: _detailText,
+                              style: TextStyle(
+                                color: scheme.onSurface,
                                 fontSize: 17,
                                 height: 1.65,
                               ),
@@ -586,20 +553,20 @@ class _PostDetailPageState extends State<PostDetailPage> {
                           ),
                         ),
                         const SizedBox(height: 28),
-                        const Divider(color: _detailBorder, height: 1),
+                        const Divider(height: 1),
                         const SizedBox(height: 24),
                         Container(
                           width: double.infinity,
                           padding: EdgeInsets.all(narrow ? 14 : 18),
                           decoration: BoxDecoration(
-                            color: _detailBackground,
+                            color: theme.scaffoldBackgroundColor,
                             borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: _detailBorder),
+                            border: Border.all(color: scheme.outlineVariant),
                           ),
                           child: ValoracionEstrellas(blogId: post.id),
                         ),
                         const SizedBox(height: 28),
-                        _seccionComentarios(),
+                        _seccionComentarios(context),
                       ],
                     ),
                   ),
