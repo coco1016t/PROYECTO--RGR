@@ -70,6 +70,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Scaffold(
       body: AuthBackground(
         child: SafeArea(
@@ -87,23 +88,23 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                           width: 64,
                           height: 64,
                           decoration: BoxDecoration(
-                            color: const Color(0xFFEEF5F4),
+                            color: scheme.secondaryContainer,
                             borderRadius: BorderRadius.circular(18),
                           ),
-                          child: const Icon(
+                          child: Icon(
                             Icons.lock_reset,
                             size: 36,
-                            color: Color(0xFF527D7B),
+                            color: scheme.primary,
                           ),
                         ),
                         const SizedBox(height: 18),
-                        const Text(
+                        Text(
                           'RECUPERAR CONTRASEÑA',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.w700,
-                            color: Color(0xFF243341),
+                            color: scheme.onSurface,
                           ),
                         ),
                         const SizedBox(height: 24),
@@ -141,9 +142,6 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                         const SizedBox(height: 4),
                         TextButton(
                           onPressed: () => Navigator.pop(context),
-                          style: TextButton.styleFrom(
-                            foregroundColor: const Color(0xFF527D7B),
-                          ),
                           child: const Text('Volver a iniciar sesión'),
                         ),
                       ],
