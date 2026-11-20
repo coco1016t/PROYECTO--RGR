@@ -9,6 +9,7 @@ import 'screens/profile_page.dart';
 import 'screens/register_user_page.dart';
 import 'screens/users_page.dart';
 import 'services/sesion_service.dart';
+import 'theme/app_theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -39,23 +40,29 @@ class LoginApp extends StatelessWidget {
         ? '/login'
         : (sesion.tipoUsuario == 1 ? '/users' : '/blog');
 
-    return MaterialApp(
-      navigatorKey: SesionService.navigatorKey,
-      debugShowCheckedModeBanner: false,
-      title: 'Aplicación móvil con FastAPI',
-      initialRoute: rutaInicial,
-      onGenerateInitialRoutes: (nombre) {
-        return [
-          MaterialPageRoute<void>(
-            settings: RouteSettings(
-              name: nombre,
-              arguments: sesion.activa ? sesion.usuario : null,
+    return ValueListenableBuilder<bool>(
+      valueListenable: AppTheme.darkMode,
+      builder: (context, darkMode, _) => MaterialApp(
+        navigatorKey: SesionService.navigatorKey,
+        debugShowCheckedModeBanner: false,
+        title: 'Aplicación móvil con FastAPI',
+        theme: AppTheme.light,
+        darkTheme: AppTheme.dark,
+        themeMode: darkMode ? ThemeMode.dark : ThemeMode.light,
+        initialRoute: rutaInicial,
+        onGenerateInitialRoutes: (nombre) {
+          return [
+            MaterialPageRoute<void>(
+              settings: RouteSettings(
+                name: nombre,
+                arguments: sesion.activa ? sesion.usuario : null,
+              ),
+              builder: rutas[nombre]!,
             ),
-            builder: rutas[nombre]!,
-          ),
-        ];
-      },
-      routes: rutas,
+          ];
+        },
+        routes: rutas,
+      ),
     );
   }
 }
