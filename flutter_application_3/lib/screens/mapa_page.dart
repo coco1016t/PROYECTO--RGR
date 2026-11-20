@@ -106,25 +106,24 @@ class _MapaPageState extends State<MapaPage> {
                   controller: _nombreController,
                   decoration: const InputDecoration(
                     labelText: 'Nombre del lugar',
-                    border: OutlineInputBorder(),
                   ),
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: _latitudController,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
                   decoration: const InputDecoration(
                     labelText: 'Latitud',
-                    border: OutlineInputBorder(),
                   ),
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: _longitudController,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
                   decoration: const InputDecoration(
                     labelText: 'Longitud',
-                    border: OutlineInputBorder(),
                   ),
                 ),
               ],
@@ -144,21 +143,27 @@ class _MapaPageState extends State<MapaPage> {
               onPressed: () {
                 final nombre = _nombreController.text.trim();
                 final latitud = double.tryParse(_latitudController.text.trim());
-                final longitud = double.tryParse(_longitudController.text.trim());
+                final longitud =
+                    double.tryParse(_longitudController.text.trim());
 
                 if (nombre.isEmpty || latitud == null || longitud == null) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text('Completa todos los campos con valores válidos.'),
+                      content: Text(
+                          'Completa todos los campos con valores válidos.'),
                     ),
                   );
                   return;
                 }
 
-                if (latitud < -90 || latitud > 90 || longitud < -180 || longitud > 180) {
+                if (latitud < -90 ||
+                    latitud > 90 ||
+                    longitud < -180 ||
+                    longitud > 180) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text('Las coordenadas están fuera del rango válido.'),
+                      content:
+                          Text('Las coordenadas están fuera del rango válido.'),
                     ),
                   );
                   return;
@@ -170,7 +175,7 @@ class _MapaPageState extends State<MapaPage> {
                       nombre: nombre,
                       descripcion: 'Ubicación agregada por el usuario.',
                       coordenadas: LatLng(latitud, longitud),
-                      color: const Color(0xFF14B8A6),
+                      color: Theme.of(context).colorScheme.primary,
                       icono: Icons.add_location_alt_rounded,
                     ),
                   );
