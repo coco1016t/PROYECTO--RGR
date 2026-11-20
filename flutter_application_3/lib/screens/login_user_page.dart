@@ -190,14 +190,6 @@ class _LoginPageState extends State<LoginPage> {
                                   iniciarSesion();
                                 },
                         ),
-                        const SizedBox(height: 8),
-                        TextButton.icon(
-                          onPressed: () {
-                            Navigator.pushNamed(context, '/mapa');
-                          },
-                          icon: const Icon(Icons.map_outlined),
-                          label: const Text('Abrir mapa de lugares'),
-                        ),
                         const SizedBox(height: 6),
                         Wrap(
                           alignment: WrapAlignment.center,
