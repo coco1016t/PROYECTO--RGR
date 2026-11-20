@@ -2,11 +2,6 @@ import 'package:flutter/material.dart';
 import '../models/valoracion_model.dart';
 import '../services/valoracion_service.dart';
 
-const Color _ratingText = Color(0xFF243341);
-const Color _ratingMuted = Color(0xFF667483);
-const Color _ratingAccent = Color(0xFF527D7B);
-const Color _ratingBorder = Color(0xFFDCE3E8);
-
 /// Muestra el promedio del post y deja al usuario elegir de 1 a 5 estrellas.
 class ValoracionEstrellas extends StatefulWidget {
   final int blogId;
@@ -69,25 +64,26 @@ class _ValoracionEstrellasState extends State<ValoracionEstrellas> {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final heading = Text(
+      'Valoración',
+      style: TextStyle(
+        color: scheme.onSurface,
+        fontSize: 19,
+        fontWeight: FontWeight.w700,
+      ),
+    );
+
     if (_cargando) {
-      return const Column(
+      return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Valoración',
-            style: TextStyle(
-              color: _ratingText,
-              fontSize: 19,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          SizedBox(height: 14),
-          ClipRRect(
+          heading,
+          const SizedBox(height: 14),
+          const ClipRRect(
             borderRadius: BorderRadius.all(Radius.circular(4)),
             child: LinearProgressIndicator(
               minHeight: 4,
-              color: _ratingAccent,
-              backgroundColor: _ratingBorder,
             ),
           ),
         ],
@@ -98,18 +94,11 @@ class _ValoracionEstrellasState extends State<ValoracionEstrellas> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Valoración',
-            style: TextStyle(
-              color: _ratingText,
-              fontSize: 19,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
+          heading,
           const SizedBox(height: 10),
           Text(
             _error!,
-            style: const TextStyle(color: _ratingMuted),
+            style: TextStyle(color: scheme.onSurfaceVariant),
           ),
           const SizedBox(height: 6),
           TextButton.icon(
@@ -119,7 +108,6 @@ class _ValoracionEstrellasState extends State<ValoracionEstrellas> {
             },
             icon: const Icon(Icons.refresh),
             label: const Text('Reintentar'),
-            style: TextButton.styleFrom(foregroundColor: _ratingAccent),
           ),
         ],
       );
@@ -131,14 +119,7 @@ class _ValoracionEstrellasState extends State<ValoracionEstrellas> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Valoración',
-          style: TextStyle(
-            color: _ratingText,
-            fontSize: 19,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
+        heading,
         const SizedBox(height: 10),
         Wrap(
           spacing: 0,
@@ -150,7 +131,7 @@ class _ValoracionEstrellasState extends State<ValoracionEstrellas> {
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
               iconSize: 28,
-              color: numero <= mia ? Colors.amber : _ratingBorder,
+              color: numero <= mia ? Colors.amber : scheme.onSurfaceVariant,
               icon: Icon(numero <= mia ? Icons.star : Icons.star_border),
               onPressed: _enviando ? null : () => _votar(numero),
             );
@@ -162,8 +143,6 @@ class _ValoracionEstrellasState extends State<ValoracionEstrellas> {
             borderRadius: BorderRadius.all(Radius.circular(4)),
             child: LinearProgressIndicator(
               minHeight: 3,
-              color: _ratingAccent,
-              backgroundColor: _ratingBorder,
             ),
           ),
         ],
@@ -174,15 +153,15 @@ class _ValoracionEstrellasState extends State<ValoracionEstrellas> {
               : 'Promedio ${resumen.promedio.toStringAsFixed(1)} '
                   '· ${resumen.total} '
                   '${resumen.total == 1 ? 'valoración' : 'valoraciones'}',
-          style: const TextStyle(color: _ratingMuted, height: 1.4),
+          style: TextStyle(color: scheme.onSurfaceVariant, height: 1.4),
         ),
         if (resumen.miPuntuacion != null)
           Padding(
             padding: const EdgeInsets.only(top: 8),
             child: DecoratedBox(
-              decoration: const BoxDecoration(
-                color: Color(0xFFEEF5F4),
-                borderRadius: BorderRadius.all(Radius.circular(12)),
+              decoration: BoxDecoration(
+                color: scheme.secondaryContainer,
+                borderRadius: const BorderRadius.all(Radius.circular(12)),
               ),
               child: Padding(
                 padding: const EdgeInsets.symmetric(
@@ -191,8 +170,8 @@ class _ValoracionEstrellasState extends State<ValoracionEstrellas> {
                 ),
                 child: Text(
                   'Tu valoración: ${resumen.miPuntuacion} de 5',
-                  style: const TextStyle(
-                    color: _ratingAccent,
+                  style: TextStyle(
+                    color: scheme.onSecondaryContainer,
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                   ),
