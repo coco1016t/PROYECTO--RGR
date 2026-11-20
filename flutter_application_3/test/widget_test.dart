@@ -5,12 +5,17 @@
 // gestures. You can also use WidgetTester to find child widgets in the widget
 // tree, read text, and verify that the values of widget properties are correct.
 
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:url_launcher/link.dart';
 
 import 'package:flutter_application_3/main.dart';
+import 'package:flutter_application_3/screens/blog_page.dart';
 import 'package:flutter_application_3/screens/forgot_password_page.dart';
 import 'package:flutter_application_3/screens/users_page.dart';
 import 'package:flutter_application_3/theme/app_theme.dart';
@@ -31,6 +36,7 @@ void main() {
     expect(find.text('Correo electrónico'), findsOneWidget);
     expect(find.text('Contraseña'), findsOneWidget);
     expect(find.text('INGRESAR'), findsOneWidget);
+    expect(find.byIcon(Icons.map_outlined), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -89,7 +95,8 @@ void main() {
   });
 
   for (final width in [390.0, 1280.0, 1920.0]) {
-    testWidgets('blog fills the available width with one create action at $width',
+    testWidgets(
+        'blog fills the available width with one create action at $width',
         (tester) async {
       tester.view.physicalSize = Size(width, 800);
       tester.view.devicePixelRatio = 1;
@@ -131,8 +138,72 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.text('Nueva publicación'), findsOneWidget);
         expect(tester.takeException(), isNull);
-      }, () => MockClient((_) async =>
-          http.Response('[{"id_blog":1,"titulo":"Ejemplo"}]', 200)));
+      },
+          () => MockClient((_) async =>
+              http.Response('[{"id_blog":1,"titulo":"Ejemplo"}]', 200)));
+    });
+  }
+
+  for (final (ruta, ancho, alto) in [
+    ('/blog', 320.0, 480.0),
+    ('/blog', 1280.0, 800.0),
+    ('/users', 320.0, 360.0),
+  ]) {
+    testWidgets('map opens from $ruta at $ancho and keeps its attribution',
+        (tester) async {
+      tester.view.physicalSize = Size(ancho, alto);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final tesela = base64Decode(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR4nGNgAAIAAAUAAXpeqz8AAAAASUVORK5CYII=',
+      );
+      await http.runWithClient(() async {
+        await abrirRuta(tester, ruta);
+        final abrirMenu = find.byTooltip('Open navigation menu');
+        if (abrirMenu.evaluate().isNotEmpty) {
+          await tester.tap(abrirMenu);
+          await tester.pumpAndSettle();
+        }
+        final opcionMapa = find.text('Mapa de lugares');
+        await tester.ensureVisible(opcionMapa);
+        await tester.pumpAndSettle();
+        expect(opcionMapa.hitTestable(), findsOneWidget);
+        await tester.tap(opcionMapa);
+        await tester.pumpAndSettle();
+
+        expect(find.text('Lugares de mi comunidad'), findsOneWidget);
+        final credito = find.text('© OpenStreetMap contributors').hitTestable();
+        expect(credito, findsOneWidget);
+        expect(tester.widget<Link>(find.byType(Link)).uri.toString(),
+            'https://www.openstreetmap.org/copyright');
+        final posicion = tester.getBottomRight(credito);
+        expect(tester.getBottomRight(find.byType(FloatingActionButton)).dy,
+            lessThan(tester.getTopLeft(credito).dy));
+
+        final mapa = MapController.of(tester.element(find.byType(TileLayer)));
+        final centroInicial = mapa.camera.center;
+        await tester.drag(find.byType(FlutterMap), const Offset(60, 40));
+        await tester.pumpAndSettle();
+        expect(mapa.camera.center, isNot(centroInicial));
+        mapa.move(mapa.camera.center, mapa.camera.zoom + 1);
+        await tester.pumpAndSettle();
+        expect(tester.getBottomRight(credito), posicion);
+
+        await tester.pageBack();
+        await tester.pumpAndSettle();
+        expect(find.byType(FlutterMap), findsNothing);
+        expect(find.byType(ruta == '/blog' ? BlogPage : UsersPage),
+            findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+          () => MockClient((request) async {
+                if (request.url.host == 'tile.openstreetmap.org') {
+                  return http.Response.bytes(tesela, 200);
+                }
+                return http.Response('[]', 200);
+              }));
     });
   }
 
