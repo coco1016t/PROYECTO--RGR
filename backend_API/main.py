@@ -409,13 +409,23 @@ def _respuesta_mensaje(mensaje: Mensaje) -> dict:
     response_model=list[ContactoMensajeriaRespuesta],
 )
 def listar_contactos_mensajeria(
+    buscar: str = Query(..., min_length=2, max_length=80),
+    limite: int = Query(8, ge=1, le=20),
     db: Session = Depends(obtener_sesion),
     quien: Usuario = Depends(usuario_actual),
 ):
+    termino = buscar.strip()
+    if len(termino) < 2:
+        return []
+
     contactos = db.execute(
         select(Usuario.id_usr, Usuario.nom_usr)
-        .where(Usuario.id_usr != quien.id_usr)
+        .where(
+            Usuario.id_usr != quien.id_usr,
+            Usuario.nom_usr.contains(termino, autoescape=True),
+        )
         .order_by(Usuario.nom_usr, Usuario.id_usr)
+        .limit(limite)
     ).all()
     return [
         {"id_usr": contacto.id_usr, "nom_usr": contacto.nom_usr}
@@ -503,9 +513,6 @@ def listar_conversaciones_mensajeria(
     salida = []
     for fila in filas_conversaciones:
         ultimo = ultimo_por_conversacion.get(fila.id_conversacion)
-        if ultimo is None:
-            # Los hilos vacíos no aparecen en la bandeja de ningún participante.
-            continue
         salida.append(
             {
                 "id_conversacion": fila.id_conversacion,
@@ -513,19 +520,37 @@ def listar_conversaciones_mensajeria(
                     "id_usr": fila.contacto_id,
                     "nom_usr": fila.contacto_nombre,
                 },
-                "ultimo_mensaje": _previsualizar_mensaje(ultimo.contenido),
-                "fecha_ultimo_mensaje": ultimo.fecha_envio,
+                "ultimo_mensaje": (
+                    _previsualizar_mensaje(ultimo.contenido)
+                    if ultimo is not None
+                    else None
+                ),
+                "fecha_ultimo_mensaje": (
+                    ultimo.fecha_envio if ultimo is not None else None
+                ),
                 "no_leidos": no_leidos_por_conversacion.get(
                     fila.id_conversacion,
                     0,
                 ),
-                "_ultimo_id": ultimo.id_mensaje,
+                "_tiene_mensajes": ultimo is not None,
+                "_orden_actividad": (
+                    ultimo.id_mensaje
+                    if ultimo is not None
+                    else fila.id_conversacion
+                ),
             }
         )
 
-    salida.sort(key=lambda item: item["_ultimo_id"], reverse=True)
+    salida.sort(
+        key=lambda item: (
+            item["_tiene_mensajes"],
+            item["_orden_actividad"],
+        ),
+        reverse=True,
+    )
     for item in salida:
-        item.pop("_ultimo_id")
+        item.pop("_tiene_mensajes")
+        item.pop("_orden_actividad")
     return salida
 
 
