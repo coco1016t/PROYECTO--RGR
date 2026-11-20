@@ -4,15 +4,13 @@ import '../services/sesion_service.dart';
 
 class UserDrawer extends StatelessWidget {
   final Map<String, dynamic> usuario;
-  final int tabActual;
-  final ValueChanged<int> onCambiarTab;
+  final ValueChanged<int>? onCambiarTab;
   final String rutaActual;
 
   const UserDrawer({
     super.key,
     required this.usuario,
-    required this.tabActual,
-    required this.onCambiarTab,
+    this.onCambiarTab,
     this.rutaActual = '/blog',
   });
 
@@ -23,7 +21,6 @@ class UserDrawer extends StatelessWidget {
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
       child: _UserNavigationContent(
         usuario: usuario,
-        tabActual: tabActual,
         onCambiarTab: onCambiarTab,
         isDrawer: true,
         rutaActual: rutaActual,
@@ -73,14 +70,14 @@ class UserNavigationPanel extends StatelessWidget {
 
 class _UserNavigationContent extends StatelessWidget {
   final Map<String, dynamic> usuario;
-  final int tabActual;
-  final ValueChanged<int> onCambiarTab;
+  final int? tabActual;
+  final ValueChanged<int>? onCambiarTab;
   final bool isDrawer;
   final String rutaActual;
 
   const _UserNavigationContent({
     required this.usuario,
-    required this.tabActual,
+    this.tabActual,
     required this.onCambiarTab,
     required this.isDrawer,
     required this.rutaActual,
@@ -108,8 +105,10 @@ class _UserNavigationContent extends StatelessWidget {
                   size: 30,
                 ),
               ),
-              accountName: Text(nombre),
-              accountEmail: Text(correo),
+              accountName:
+                  Text(nombre, style: TextStyle(color: scheme.onPrimary)),
+              accountEmail:
+                  Text(correo, style: TextStyle(color: scheme.onPrimary)),
             )
           else
             Padding(
@@ -153,20 +152,22 @@ class _UserNavigationContent extends StatelessWidget {
                 ],
               ),
             ),
-          _opcion(
-            context,
-            icono: Icons.dynamic_feed_outlined,
-            titulo: 'Inicio',
-            seleccionado: tabActual == 0,
-            onTap: () => _cambiarPestana(context, 0),
-          ),
-          _opcion(
-            context,
-            icono: Icons.article_outlined,
-            titulo: 'Mis publicaciones',
-            seleccionado: tabActual == 1,
-            onTap: () => _cambiarPestana(context, 1),
-          ),
+          if (onCambiarTab != null) ...[
+            _opcion(
+              context,
+              icono: Icons.dynamic_feed_outlined,
+              titulo: 'Inicio',
+              seleccionado: tabActual == 0,
+              onTap: () => _cambiarPestana(context, 0),
+            ),
+            _opcion(
+              context,
+              icono: Icons.article_outlined,
+              titulo: 'Mis publicaciones',
+              seleccionado: tabActual == 1,
+              onTap: () => _cambiarPestana(context, 1),
+            ),
+          ],
           _opcion(
             context,
             icono: Icons.forum_outlined,
@@ -198,10 +199,11 @@ class _UserNavigationContent extends StatelessWidget {
           ListTile(
             horizontalTitleGap: 12,
             minLeadingWidth: 24,
-            leading: Icon(Icons.logout_rounded, color: scheme.error),
+            leading:
+                Icon(Icons.logout_rounded, color: scheme.onSecondaryContainer),
             title: Text(
               'Cerrar sesi\u00F3n',
-              style: TextStyle(color: scheme.error),
+              style: TextStyle(color: scheme.onSecondaryContainer),
             ),
             onTap: () {
               SesionService.instance.cerrar();
@@ -220,7 +222,7 @@ class _UserNavigationContent extends StatelessWidget {
 
   void _cambiarPestana(BuildContext context, int indice) {
     _cerrarDrawer(context);
-    onCambiarTab(indice);
+    onCambiarTab?.call(indice);
   }
 
   void _cerrarDrawer(BuildContext context) {
@@ -242,13 +244,13 @@ class _UserNavigationContent extends StatelessWidget {
       leading: Icon(
         icono,
         color: seleccionado
-            ? scheme.primary
+            ? scheme.onSecondaryContainer
             : scheme.onSurface.withValues(alpha: .65),
       ),
       title: Text(
         titulo,
         style: TextStyle(
-          color: seleccionado ? scheme.primary : scheme.onSurface,
+          color: seleccionado ? scheme.onSecondaryContainer : scheme.onSurface,
           fontWeight: seleccionado ? FontWeight.w700 : FontWeight.w500,
         ),
       ),
