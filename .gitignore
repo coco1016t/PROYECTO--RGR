@@ -8,6 +8,8 @@ __pycache__/
 # Local macOS files
 .DS_Store
 
-# Uploaded runtime content
-backend_API/uploads/
+# Uploaded runtime content (se excluyen subidas temporales pero se conservan las noticias base)
+backend_API/uploads/*
+!backend_API/uploads/noticia_*.jpg
+!backend_API/uploads/.gitkeep
 backend_API/aplicacion.db
