@@ -495,44 +495,28 @@ class _PostDetailPageState extends State<PostDetailPage> {
                         ),
                         if (post.imagen.isNotEmpty) ...[
                           const SizedBox(height: 24),
-                          LayoutBuilder(
-                            builder: (context, imageConstraints) {
-                              final imageHeight =
-                                  imageConstraints.maxWidth >= 900
-                                      ? (imageConstraints.maxWidth * 0.36)
-                                          .clamp(300.0, 380.0)
-                                          .toDouble()
-                                      : (imageConstraints.maxWidth * 0.62)
-                                          .clamp(180.0, 260.0)
-                                          .toDouble();
-
-                              return ClipRRect(
-                                borderRadius: BorderRadius.circular(13),
-                                child: ColoredBox(
-                                  color: theme.scaffoldBackgroundColor,
-                                  child: Image.network(
-                                    PostService.urlImagen(post.imagen)
-                                        .toString(),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(14),
+                            child: AspectRatio(
+                              aspectRatio: 16 / 9,
+                              child: Image.network(
+                                PostService.urlImagen(post.imagen).toString(),
+                                width: double.infinity,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return Container(
                                     width: double.infinity,
-                                    height: imageHeight,
-                                    fit: BoxFit.contain,
-                                    errorBuilder: (context, error, stackTrace) {
-                                      return SizedBox(
-                                        width: double.infinity,
-                                        height: imageHeight,
-                                        child: Center(
-                                          child: Icon(
-                                            Icons.image_not_supported_outlined,
-                                            color: scheme.onSurfaceVariant,
-                                            size: 30,
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                ),
-                              );
-                            },
+                                    color: scheme.secondaryContainer,
+                                    alignment: Alignment.center,
+                                    child: Icon(
+                                      Icons.image_not_supported_outlined,
+                                      color: scheme.onSurfaceVariant,
+                                      size: 36,
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
                           ),
                         ],
                         const SizedBox(height: 28),
