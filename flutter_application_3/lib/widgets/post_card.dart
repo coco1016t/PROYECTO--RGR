@@ -150,7 +150,7 @@ class PostCard extends StatelessWidget {
                 LayoutBuilder(
                   builder: (context, constraints) {
                     final imageHeight = (constraints.maxWidth * 9 / 16)
-                        .clamp(140.0, 240.0)
+                        .clamp(180.0, 350.0)
                         .toDouble();
                     return Image.network(
                       PostService.urlImagen(post.imagen).toString(),
