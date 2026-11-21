@@ -64,6 +64,8 @@ class AdminDrawer extends StatelessWidget {
                     '/users',
                   ),
                   _opcion(
+                      context, Icons.article_outlined, 'Blog', '/blog'),
+                  _opcion(
                       context, Icons.forum_outlined, 'Mensajes', '/mensajes'),
                   _opcion(
                       context, Icons.map_outlined, 'Mapa de lugares', '/mapa'),
